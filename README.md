@@ -11,7 +11,8 @@ Alright, if we just plot y(n) with straight lines connecting the points, we'd ge
 We can find the average number of viewers, per hour of the day, and plot:
 
 ```python
->>> Steps().add([Step(2),Step(1),Step(2),Step(3),Step(5),Step(8)])
+>>> st = Steps().add([Step(0,None,2),Step(1,None,1),Step(2,None,2),Step(3,None,3),Step(4,None,5),Step(5,None,8)])
+>>> ax = st.plot()
 ```
 <p align="left"><img src="https://github.com/TangleSpace/HotStepper/blob/main/docs/images/fibo_steps.png?raw=true" title="Fibonacci Steps" alt="Fibonacci Steps"></p>
 
