@@ -13,5 +13,5 @@ We can find the average number of viewers, per hour of the day, and plot:
 ```python
 >>> Steps().add([Step(2),Step(1),Step(2),Step(3),Step(5),Step(8)])
 ```
-<p align="left"><img src="https://github.com/tanglespace/hotstepper/docs/images/fib_steps.png?raw=true" title="Fibonacci Steps" alt="Fibonacci Steps"></p>
+<p align="left"><img src="https://github.com/TangleSpace/HotStepper/blob/main/docs/images/fibo_steps.png?raw=true" title="Fibonacci Steps" alt="Fibonacci Steps"></p>
 
