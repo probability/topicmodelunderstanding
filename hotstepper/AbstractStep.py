@@ -91,17 +91,21 @@ class AbstractStep(metaclass=abc.ABCMeta):
         return self.step(x)
     
     # Property access methods, best to avoid direct access of "private" properties
+    @abc.abstractmethod
     def start(self) -> T:
-        return self._start
+        pass
     
+    @abc.abstractmethod
     def start_ts(self) -> T:
-        return self._start_ts
+        pass
     
+    @abc.abstractmethod
     def end(self) -> AbstractStep:
-        return self._end
+        pass
     
+    @abc.abstractmethod
     def weight(self) -> T:
-        return self._weight
+        pass
 
     def rebase(self,new_basis:Basis = Basis()) -> None:
         self._basis = new_basis
@@ -119,8 +123,9 @@ class AbstractStep(metaclass=abc.ABCMeta):
 
         return res
 
+    @abc.abstractmethod
     def __repr__(self) -> str:
-        return ':'.join([str(self._start),str(self._weight)])
+        pass
 
     @abc.abstractmethod
     def link_child(self, other):

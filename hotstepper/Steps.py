@@ -1085,7 +1085,22 @@ class Steps(AbstractStep):
             st.reduce()
 
             return st
+
+    def start_ts(self) -> T:
+        pass
     
+    def start(self) -> T:
+        pass
+    
+    def end(self) -> Step:
+        pass
+    
+    def weight(self) -> T:
+        pass
+
+    def __repr__(self) -> str:
+        return ','.join([str(s) for s in self._steps])
+
     def link_child(self, other):
         pass
     

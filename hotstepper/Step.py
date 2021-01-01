@@ -281,7 +281,10 @@ class Step(AbstractStep):
         return self + other.reflect()
 
     def __repr__(self) -> str:
-        return ':'.join([str(self._start),str(self._weight)])
+        if self._end is None:
+            return ':'.join([str(self._start),str(self._weight)])
+        else:
+            return ':'.join([str(self._start),str(self._end),str(self._weight)])
     
     def integrate(self,upper:T, lower:T = 0) -> T:
         return self._weight*(self._basis.integrand(upper-self._start_ts) - self._basis.integrand(lower-self._start_ts))
