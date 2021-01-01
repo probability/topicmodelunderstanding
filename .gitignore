@@ -1,5 +1,6 @@
 .vscode
 .git
+.gitignore
 docs/__pycache__
 hotstepper/__pycache__
 notebooks/imports/__pycache__
