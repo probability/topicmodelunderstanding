@@ -1,0 +1,8 @@
+.vscode
+.git
+docs/__pycache__
+hotstepper/__pycache__
+notebooks/imports/__pycache__
+notebooks/images.ipynb
+notebooks/.ipynb_checkpoints
+
