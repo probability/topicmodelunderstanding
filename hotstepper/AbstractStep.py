@@ -31,7 +31,11 @@ class AbstractStep(metaclass=abc.ABCMeta):
 
     @staticmethod
     def get_epoch_start():
-        return pd.Timestamp(1970,1,1)
+        return pd.Timestamp.min
+
+    @staticmethod
+    def get_epoch_end():
+        return pd.Timestamp.max
 
     @staticmethod
     def simple_plot(xdata,ydata,cdata=None, ax=None,**kargs):

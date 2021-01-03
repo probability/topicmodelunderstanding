@@ -13,10 +13,8 @@ import copy
 from scipy import stats
 from statsmodels.tsa.tsatools import lagmat
 from statsmodels.tools.tools import add_constant
-from sklearn.linear_model import LinearRegression
 from collections import defaultdict
 import operator
-from datetime import datetime
 from numpy.core.records import array
 import pandas as pd
 from sortedcontainers import SortedDict,SortedSet
@@ -70,12 +68,12 @@ class Analysis():
         span_deltas = np.diff(step_ts)
         weights = np.divide(span_deltas,span)
 
-        return span, weights
+        return np.min(step_ts),np.max(step_ts),span, weights
 
     @staticmethod
     def mean_integrate(st:Steps) -> list(T):
         steps_raw = st.steps_values()
-        span, weight = Analysis.span_and_weights(st)
+        _,_,span, weight = Analysis.span_and_weights(st)
         mean = np.dot(steps_raw[0:-1],weight)
         var = np.dot(np.power(steps_raw[0:-1],2),weight) - mean**2
         area = span*mean
@@ -704,9 +702,14 @@ class Steps(AbstractStep):
         
 
     def weights(self):
-        _, w = Analysis.span_and_weights(self)
+        _,_,_, w = Analysis.span_and_weights(self)
 
         return w
+
+    def span(self):
+        smin,smax,s, _ = Analysis.span_and_weights(self)
+
+        return smin,smax,s
 
     def reduce(self, full_reduce:bool=False) -> None:      
 

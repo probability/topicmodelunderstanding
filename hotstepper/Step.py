@@ -19,24 +19,30 @@ valid_input_types = (int,float,pd.Timestamp,datetime)
 T = Union[valid_input_types]
 S = Union[int,float,'Optional[Step]','Optional[Steps]']
     
-class Step(AbstractStep):    
+class Step(AbstractStep):
     
-    def __init__(self, start:T,end:T = None, weight:T = 1, basis:Basis = Basis()) -> None:
+    def __init__(self, start:T=None, end:T = None, weight:T = 1, basis:Basis = Basis(), use_datetime:bool = False) -> None:
         super().__init__()
+        
+        self._weight = weight
+
+        self._using_dt = use_datetime
 
         if start is None:
-            self._start = 0
-            self._weight = 0
+            if use_datetime:
+                self._start = Step.get_epoch_start()
+                self._start_ts = self._start.timestamp()
+            else:
+                self._start = -np.inf
+                self._start_ts = self._start
         else:
+            self._using_dt = Step.is_date_time(start)
             self._start = start
-            self._weight = weight
-
-        self._using_dt = Step.is_date_time(start)
-
-        if self._using_dt:
-            self._start_ts = self._start.timestamp()
-        else:
-            self._start_ts = start
+            
+            if self._using_dt:
+                self._start_ts = self._start.timestamp()
+            else:
+                self._start_ts = self._start
 
 
         self._end = end
@@ -96,23 +102,23 @@ class Step(AbstractStep):
         else:
             xf = cp.asarray([t-self._start_ts for t in x])
             
-        res = self._weight*self._base(xf,self._basis.param)
+        result = self._weight*self._base(xf,self._basis.param)
         end_st = self._end
         
         if end_st is not None and hasattr(end_st,'step') and callable(end_st.step):
             if hasattr(cp,'asnumpy'):
-                cp_res = cp.asnumpy(res)
+                cp_res = cp.asnumpy(result)
             else:
-                cp_res = res
+                cp_res = result
 
-            res = np.add(cp_res,end_st.step(x))
+            result = np.add(cp_res,end_st.step(x))
             
         del xf
         
         if hasattr(cp,'asnumpy'):
-            return cp.asnumpy(res)
+            return cp.asnumpy(result)
         else:
-            return res
+            return result
 
     
     def smooth_step(self,x:[T],smooth_factor:Union[int,float] = 1.0,smooth_basis:Basis = None) -> [T]:
@@ -310,13 +316,20 @@ class Step(AbstractStep):
             _, ax = plt.subplots()
 
         color = kargs.pop('color',None)
+        
         if color is None:
             color=Step.get_default_plot_color()
 
-        min_ts = float(0.98*self._start_ts)
+        if self._start_ts == -np.inf:
+            min_ts = 0
+        else:
+            min_ts = float(0.98*self._start_ts)
 
         if self._end is None:
-            max_ts = float(1.02*self._start_ts)
+            if self._start_ts == -np.inf:
+                max_ts = 1
+            else:
+                max_ts = float(1.02*self._start_ts)
         else:
             max_ts = float(1.02*self._end._start_ts)
         
