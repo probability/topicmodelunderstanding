@@ -1,4 +1,4 @@
-<p align="left"><img src="https://github.com/TangleSpace/HotStepper/blob/main/docs/images/HotstepperLogo?raw=true" title="Hot Stepper" alt="Hot Stepper"></p>
+<p align="left"><img src="https://github.com/TangleSpace/HotStepper/blob/main/docs/images/HotstepperLogo.png?raw=true" title="Hot Stepper" alt="Hot Stepper"></p>
 
 The HotStepper library is for exploring datasets via step function expansions.
 
