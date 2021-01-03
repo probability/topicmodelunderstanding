@@ -26,6 +26,14 @@ class AbstractStep(metaclass=abc.ABCMeta):
         return valid_input_types
 
     @staticmethod
+    def get_default_plot_color():
+        return '#9c00ff'
+
+    @staticmethod
+    def get_epoch_start():
+        return pd.Timestamp(1970,1,1)
+
+    @staticmethod
     def simple_plot(xdata,ydata,cdata=None, ax=None,**kargs):
         if ax is None:
             _, ax = plt.subplots()
@@ -50,7 +58,7 @@ class AbstractStep(metaclass=abc.ABCMeta):
 
         color = kargs.pop('color',None)
         if color is None:
-            color='indigo'
+            color=AbstractStep.get_default_plot_color()
 
         if end_index is None:
             end_index = len(step_dict)-1

@@ -165,7 +165,6 @@ class Steps(AbstractStep):
     def __init__(self,use_datetime=False,basis:Basis = Basis()) -> None:
         super().__init__()
         self._steps = np.array([],dtype=Step)
-        #self._steps_ends = np.array([],dtype=Step)
         self._basis = basis
         self._using_dt = use_datetime
         self._base = basis.base()
@@ -448,17 +447,6 @@ class Steps(AbstractStep):
         else:
             raise TypeError("input data must be an array")
 
-
-    # @staticmethod
-    # def stepify(data,start:str='start',end:str=None,weight:str=None, use_datetime:bool = False, convert_delta:bool = False) -> Steps:
-    #     d = type(data)
-
-    #     if d == pd.DataFrame:
-    #         return Steps.read_dataframe(data,start,end,weight,use_datetime,convert_delta)
-    #     elif d in [dict,SortedDict,OrderedDict,DefaultDict]:
-    #         return Steps.read_dict(data,use_datetime,convert_delta)
-    #     elif d in [array,np.ndarray]:
-    #         pass
                 
     def clear(self) -> None:
         """
@@ -466,7 +454,6 @@ class Steps(AbstractStep):
         """
 
         self._steps = np.array([],dtype=Step)
-        #self._steps_ends = np.array([],dtype=Step)
         self._cumsum = np.array([])
         self._cummulative = SortedDict()
         
@@ -521,7 +508,10 @@ class Steps(AbstractStep):
 
             return combine
         else:
-            combine.add([Step(-np.Inf,weight=other)])
+            if self._using_dt:
+                combine.add([Step(Steps.get_epoch_start(),weight=other)])
+            else:
+                combine.add([Step(-np.Inf,weight=other)])
 
             return combine
 
@@ -772,6 +762,9 @@ class Steps(AbstractStep):
 
     def __getitem__(self,x:T) -> T:
         return self.step(x)
+
+    def __call__(self,x:T) -> T:
+        return self.step(x)
     
     def step(self, x:T) -> [T]:
         if type(x) in Step.input_types():
@@ -819,7 +812,7 @@ class Steps(AbstractStep):
         
         color = kargs.pop('color',None)
         if color is None:
-            color='indigo'
+            color=Steps.get_default_plot_color()
 
         if method == None:
             raw_steps = self.to_dict()
@@ -1051,7 +1044,16 @@ class Steps(AbstractStep):
         new_instance.add(rshift_steps)
         return new_instance
 
-    
+    def __floordiv__(self,other:V) -> Steps:
+        pass
+
+    def rotate(self) -> Steps:
+        return Steps.read_array(self.step_values(),self.step_keys(),convert_delta=True)
+
+
+    def __truediv__(self,other:V) -> Steps:
+        return self*other**-1
+
     def __mul__(self,other:V) -> Steps:
         if isinstance(other, Steps):
             new_steps = np.array([],dtype=Step)

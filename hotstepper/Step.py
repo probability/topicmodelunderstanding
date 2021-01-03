@@ -78,7 +78,10 @@ class Step(AbstractStep):
         else:
             return self._start_ts == other
     
-    def __getitem__(self,x:T) ->T:
+    def __getitem__(self,x:T) -> T:
+        return self.step(x)
+
+    def __call__(self,x:T) -> T:
         return self.step(x)
     
     def step(self,x:T) -> T:
@@ -239,6 +242,19 @@ class Step(AbstractStep):
             return Step(start=self._start,weight=self._weight**power_val)
         else:
             return Step(start=self._start,end=self._end._start,weight=self._weight**power_val)
+
+    def __floordiv__(self,other:S) -> Step:
+        # result = self*other**-1
+        # if result.end() is None:
+        #     floor_result = Step(result.start(),np.floor(result.weight()))
+        # else:
+        #     floor_result = Step(result.start(),result.end().start(),np.floor(result.weight()))
+        
+        # return floor_result
+        pass
+
+    def __truediv__(self,other:S) -> Step:
+        return self*other**-1
         
     def __mul__(self,other:S) -> Step:
         t = type(other)
@@ -295,7 +311,7 @@ class Step(AbstractStep):
 
         color = kargs.pop('color',None)
         if color is None:
-            color='indigo'
+            color=Step.get_default_plot_color()
 
         min_ts = float(0.98*self._start_ts)
 
