@@ -1,4 +1,5 @@
-# HotStepper
+<p align="left"><img src="https://github.com/TangleSpace/HotStepper/blob/main/docs/images/HotstepperLogo?raw=true" title="Hot Stepper" alt="Hot Stepper"></p>
+
 The HotStepper library is for exploring datasets via step function expansions.
 
 What the f*&^ is a step function you may ask?, Have you ever seen some stairs?, this is an equal oppotunity package, so you may be in a wheel chair and unable to use stairs in the typical way, so just seeing some stair will suffix.
