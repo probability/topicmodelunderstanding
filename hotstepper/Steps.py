@@ -172,7 +172,7 @@ class Steps(AbstractStep):
         
 
     @staticmethod
-    def aggregate(stepss: [Optional[Steps]], aggfunc:cp.ufunc, sample_points:[T]=None) -> Steps:
+    def aggregate(stepss: list(Optional[Steps]), aggfunc:cp.ufunc, sample_points:list(T)=None) -> Steps:
         """
         Return weights for an Np-point central derivative.
         Assumes equally-spaced function points.
@@ -455,7 +455,7 @@ class Steps(AbstractStep):
         self._cumsum = np.array([])
         self._cummulative = SortedDict()
         
-    def add(self,steps:[Step]) -> Steps:
+    def add(self,steps:list(Step)) -> Steps:
         """
         Add an array of individual step objects to this collection of steps.
 
@@ -542,7 +542,7 @@ class Steps(AbstractStep):
     def steps_values(self) -> np.ndarray:
         return self._cumsum
         
-    def steps(self) -> [Step]:
+    def steps(self) -> list(Step):
         return self._steps
 
 
@@ -721,10 +721,10 @@ class Steps(AbstractStep):
         self.add(new_steps)
 
 
-    def step_values(self) -> [T]:
+    def step_values(self) -> list(T):
         return self._cumsum
     
-    def step_keys(self) -> [T]:
+    def step_keys(self) -> list(T):
         return list(self._cummulative.keys())
     
     
@@ -769,7 +769,7 @@ class Steps(AbstractStep):
     def __call__(self,x:T) -> T:
         return self.step(x)
     
-    def step(self, x:T) -> [T]:
+    def step(self, x:T) -> list(T):
         if type(x) in Step.input_types():
             x = [x]
         elif type(x) is slice:
@@ -1115,7 +1115,7 @@ class Steps(AbstractStep):
     def __ilshift__(self,other:T):
         pass
     
-    def smooth_step(self,x:[T],smooth_factor:Union[int,float] = None,smooth_basis:Basis = None) -> [T]:
+    def smooth_step(self,x:list(T),smooth_factor:Union[int,float] = None,smooth_basis:Basis = None) -> list(T):
 
         step_ts = np.array([s.start_ts() for s in self._steps])
         max_ts = np.amax(step_ts)

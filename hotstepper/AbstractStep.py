@@ -123,7 +123,7 @@ class AbstractStep(metaclass=abc.ABCMeta):
         self._basis = new_basis
         self._base = self._basis.base()
 
-    def _faststep(self,x:[T]) -> [T]:
+    def _faststep(self,x:list(T)) -> list(T):
         
         if self._basis.lbound > -np.Inf or self._basis.ubound < np.Inf:
             xr = np.where((x >= self._start_ts + self._basis.lbound) & ( x <= self._start_ts + self._basis.ubound),x,0)
@@ -204,5 +204,5 @@ class AbstractStep(metaclass=abc.ABCMeta):
         pass
     
     @abc.abstractmethod
-    def smooth_step(self,x:[T],smooth_factor:Union[int,float] = 1.0,smooth_basis:Basis = None) -> [T]:
+    def smooth_step(self,x:list(T),smooth_factor:Union[int,float] = 1.0,smooth_basis:Basis = None) -> list(T):
         pass

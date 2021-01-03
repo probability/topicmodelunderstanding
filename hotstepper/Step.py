@@ -121,7 +121,7 @@ class Step(AbstractStep):
             return result
 
     
-    def smooth_step(self,x:[T],smooth_factor:Union[int,float] = 1.0,smooth_basis:Basis = None) -> [T]:
+    def smooth_step(self,x:list(T),smooth_factor:Union[int,float] = 1.0,smooth_basis:Basis = None) -> list(T):
         if smooth_basis is None:
             smooth_basis = Basis(Basis.logit,smooth_factor*len(x))
         else:
@@ -140,7 +140,7 @@ class Step(AbstractStep):
         return smoothed
 
     
-    def _faststep(self,x:[T]) -> [T]:
+    def _faststep(self,x:list(T)) -> list(T):
         
         if self._basis.lbound > -np.Inf or self._basis.ubound < np.Inf:
             xr = np.where((x >= self._start_ts + self._basis.lbound) & ( x <= self._start_ts + self._basis.ubound),x,0)
