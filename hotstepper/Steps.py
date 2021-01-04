@@ -1007,6 +1007,18 @@ class Steps(AbstractStep):
         
         return new_instance
 
+    def __iter__(self):
+        self._index = 0
+        return iter(self._steps)
+
+    def __next__(self):
+        if self._index < len(self._steps):
+            self._index += 1
+            return self._steps[self._index - 1]
+        else:
+            self._index = 0
+            raise StopIteration
+
     def normalise(self) -> Steps:
         return self._operate_norm(0, operator.ne)
     

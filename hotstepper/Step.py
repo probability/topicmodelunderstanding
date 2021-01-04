@@ -338,9 +338,13 @@ class Step(AbstractStep):
                 if ts_grain==None:
                     #TODO: need to detect scale from step definitions
                     ts_grain = pd.Timedelta(minutes=10)
-                    
-                min_value = pd.Timestamp.fromtimestamp(min_ts)-ts_grain
-                max_value = pd.Timestamp.fromtimestamp(max_ts)
+                
+                if self._start == Step.get_epoch_start():
+                    min_value = Step.get_epoch_start()-pd.Timedelta(days=1)
+                    max_value = Step.get_epoch_start()+pd.Timedelta(days=1)
+                else:
+                    min_value = pd.Timestamp.fromtimestamp(min_ts)-ts_grain
+                    max_value = pd.Timestamp.fromtimestamp(max_ts)
 
                 tsx = np.arange(min_value, max_value, ts_grain).astype(pd.Timestamp)
             else:
