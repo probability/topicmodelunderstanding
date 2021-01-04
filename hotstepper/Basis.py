@@ -15,11 +15,15 @@ class Basis():
     __slots__ = ('lbound','ubound','_base','_ibase','_dbase','param')
     
     @staticmethod
-    def heaviside(x:[T],s:float) -> np.ufunc:
+    def heaviside(x:list(T),s:float) -> np.ufunc:
         return cp.where(x >= 0,s,0)
+
+    @staticmethod
+    def constant(x:list(T),s:float) -> np.ufunc:
+        return cp.ones(len(x))
     
     @staticmethod
-    def dheaviside(x:[T],s:float) -> np.ufunc:
+    def dheaviside(x:list(T),s:float) -> np.ufunc:
         return s*x*float(x==0)
 
     @staticmethod
@@ -86,7 +90,7 @@ class Basis():
     def dsigmoid(x:float,s:float) -> cp.ufunc:
         return (s*cp.exp(-s*x))/(Basis.sigmoid(x,s))**2
 
-    def _default_base(self,x:[T],s:float) -> cp.ufunc:
+    def _default_base(self,x:list(T),s:float) -> cp.ufunc:
         return Basis.heaviside(x,s)
         
     def __init__(self,bfunc=None, param:float=1,lbound:float= -np.Inf,ubound:float = np.Inf) -> None:
@@ -98,9 +102,6 @@ class Basis():
             self._base = Basis.heaviside
         else:
             self._base = bfunc
-            
-        #self._ibase = getattr(Basis,''.join(['i',(self._base).__name__]))
-        #self._dbase = getattr(Basis,''.join(['d',(self._base).__name__]))
             
     def base(self) -> cp.ufunc:
         return self._base

@@ -29,13 +29,20 @@ class Step(AbstractStep):
         self._using_dt = use_datetime
 
         if start is None:
-            if use_datetime:
+            self._basis = Basis(Basis.constant)
+            self._base = self._basis.base()
+
+            if use_datetime or Step.is_date_time(end):
                 self._start = Step.get_epoch_start()
                 self._start_ts = self._start.timestamp()
+                self._using_dt = True
             else:
-                self._start = -np.inf
+                self._start = 0
                 self._start_ts = self._start
         else:
+            self._basis = basis
+            self._base = self._basis.base()
+
             self._using_dt = Step.is_date_time(start)
             self._start = start
             
@@ -46,15 +53,13 @@ class Step(AbstractStep):
 
 
         self._end = end
-        self._basis = basis
-        self._base = self._basis.base()
 
         if end is not None:
             self._end = self.link_child(end)
 
 
     def link_child(self,other:T) -> Step:
-        return Step(other,end=None,weight = -1*self._weight,basis=self._basis)
+        return Step(start=other,end=None,weight = -1*self._weight)
     
     def rebase(self,new_basis:Basis = Basis()) -> None:
         self._basis = new_basis
@@ -316,65 +321,94 @@ class Step(AbstractStep):
             _, ax = plt.subplots()
 
         color = kargs.pop('color',None)
-        
+
         if color is None:
             color=Step.get_default_plot_color()
 
-        if plot_range is None:
-            if self._start_ts == -np.inf:
-                min_ts = 0
-            else:
-                min_ts = float(0.98*self._start_ts)
-
-            if self._end is None:
-                if self._start_ts == -np.inf:
-                    max_ts = 1
-                else:
-                    max_ts = float(1.02*self._start_ts)
-            else:
-                max_ts = float(1.02*self._end._start_ts)
-            
-            if self._using_dt:
-                if ts_grain==None:
-                    #TODO: need to detect scale from step definitions
-                    ts_grain = pd.Timedelta(minutes=10)
-                
-                if self._start == Step.get_epoch_start():
-                    min_value = Step.get_epoch_start()-pd.Timedelta(days=1)
-                    max_value = Step.get_epoch_start()+pd.Timedelta(days=1)
-                else:
-                    min_value = pd.Timestamp.fromtimestamp(min_ts)-ts_grain
-                    max_value = pd.Timestamp.fromtimestamp(max_ts)
-
-                tsx = np.arange(min_value, max_value, ts_grain).astype(pd.Timestamp)
-            else:
-                if ts_grain==None:
-                    ts_grain = 0.01
-                
-                min_value = min_ts-ts_grain
-                max_value = max_ts
-
-                tsx = np.arange(min_value, max_value, ts_grain)
+        if self._end is None:
+            max_ts = float(1.02*self._start_ts)
         else:
-            min_value = plot_range[0]
-            max_value = plot_range[1]
+            max_ts = float(1.02*self._end.start_ts())
 
-            if self._using_dt:
-                if len(plot_range) < 3:
-                    #TODO: need to detect scale from step definitions
-                    ts_grain = pd.Timedelta(minutes=10)
-                else:
-                    ts_grain = plot_range[2]
+        if self._start == Step.get_epoch_start():
+            min_ts = float(0.96*max_ts)
+        else:
+            min_ts = float(0.98*self._start_ts)
 
-                tsx = tsx = np.arange(min_value, max_value, ts_grain).astype(pd.Timestamp)
-            else:
-                if len(plot_range) < 3:
-                    #TODO: need to detect scale from step definitions
-                    ts_grain = 0.01
-                else:
-                    ts_grain = plot_range[2]
+        if self._using_dt:
+            if ts_grain==None:
+                ts_grain = pd.Timedelta(minutes=10)
                 
-                tsx = tsx = np.arange(min_value, max_value, ts_grain)
+            min_value = pd.Timestamp.fromtimestamp(min_ts)-ts_grain
+            max_value = pd.Timestamp.fromtimestamp(max_ts)
+
+            tsx = np.arange(min_value, max_value, ts_grain).astype(pd.Timestamp)
+        else:
+            if ts_grain==None:
+                ts_grain = 0.01
+            
+            min_value = min_ts-ts_grain
+            max_value = max_ts
+
+            tsx = np.arange(min_value, max_value, ts_grain)       
+        # if color is None:
+        #     color=Step.get_default_plot_color()
+
+        # if plot_range is None:
+        #     if self._start_ts == -np.inf:
+        #         min_ts = 0
+        #     else:
+        #         min_ts = float(0.98*self._start_ts)
+
+        #     if self._end is None:
+        #         if self._start_ts == -np.inf:
+        #             max_ts = 1
+        #         else:
+        #             max_ts = float(1.02*self._start_ts)
+        #     else:
+        #         max_ts = float(1.02*self._end._start_ts)
+            
+        #     if self._using_dt:
+        #         if ts_grain==None:
+        #             #TODO: need to detect scale from step definitions
+        #             ts_grain = pd.Timedelta(minutes=10)
+                
+        #         if self._start == Step.get_epoch_start():
+        #             min_value = Step.get_epoch_start()-pd.Timedelta(days=1)
+        #             max_value = Step.get_epoch_start()+pd.Timedelta(days=1)
+        #         else:
+        #             min_value = pd.Timestamp.fromtimestamp(min_ts)-ts_grain
+        #             max_value = pd.Timestamp.fromtimestamp(max_ts)
+
+        #         tsx = np.arange(min_value, max_value, ts_grain).astype(pd.Timestamp)
+        #     else:
+        #         if ts_grain==None:
+        #             ts_grain = 0.01
+                
+        #         min_value = min_ts-ts_grain
+        #         max_value = max_ts
+
+        #         tsx = np.arange(min_value, max_value, ts_grain)
+        # else:
+        #     min_value = plot_range[0]
+        #     max_value = plot_range[1]
+
+        #     if self._using_dt:
+        #         if len(plot_range) < 3:
+        #             #TODO: need to detect scale from step definitions
+        #             ts_grain = pd.Timedelta(minutes=10)
+        #         else:
+        #             ts_grain = plot_range[2]
+
+        #         tsx = tsx = np.arange(min_value, max_value, ts_grain).astype(pd.Timestamp)
+        #     else:
+        #         if len(plot_range) < 3:
+        #             #TODO: need to detect scale from step definitions
+        #             ts_grain = 0.01
+        #         else:
+        #             ts_grain = plot_range[2]
+                
+        #         tsx = tsx = np.arange(min_value, max_value, ts_grain)
 
 
         if method == 'pretty':
