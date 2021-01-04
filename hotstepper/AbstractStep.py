@@ -96,7 +96,7 @@ class AbstractStep(metaclass=abc.ABCMeta):
         super().__init__()
 
     @abc.abstractmethod
-    def plot(self,method:str=None,smooth_factor:Union[int,float] = 1, ts_grain:Union[int,float,pd.Timedelta] = None,ax=None,where='post',**kargs):
+    def plot(self,plot_range:list(Union[int,float,pd.Timedelta],Union[int,float,pd.Timedelta],Union[int,float,pd.Timedelta])=None,method:str=None,smooth_factor:Union[int,float] = 1, ts_grain:Union[int,float,pd.Timedelta] = None,ax=None,where='post',**kargs):
         pass
 
     def __getitem__(self,x:T) ->T:

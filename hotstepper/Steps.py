@@ -809,7 +809,7 @@ class Steps(AbstractStep):
     def smooth_plot(self,smooth_factor:Union[int,float] = None, ts_grain:Union[int,float,pd.Timedelta] = None,ax=None,where='post',**kargs):
         return self.plot(method='smooth',smooth_factor=smooth_factor, ts_grain=ts_grain,ax=ax,where=where,**kargs)
 
-    def plot(self,method:str=None, plot_start=None,plot_end=None,smooth_factor:Union[int,float] = None, ts_grain:Union[int,float,pd.Timedelta] = None,ax=None,where='post',**kargs):
+    def plot(self,plot_range:list(Union[int,float,pd.Timedelta],Union[int,float,pd.Timedelta],Union[int,float,pd.Timedelta])=None,method:str=None, plot_start=None,plot_end=None,smooth_factor:Union[int,float] = None, ts_grain:Union[int,float,pd.Timedelta] = None,ax=None,where='post',**kargs):
         if ax is None:
             _, ax = plt.subplots()
         

@@ -311,7 +311,7 @@ class Step(AbstractStep):
     def integrate(self,upper:T, lower:T = 0) -> T:
         return self._weight*(self._basis.integrand(upper-self._start_ts) - self._basis.integrand(lower-self._start_ts))
 
-    def plot(self,method:str=None,smooth_factor:Union[int,float] = 1, ts_grain:Union[int,float,pd.Timedelta] = None,ax=None,where='post',**kargs):
+    def plot(self,plot_range:list(Union[int,float,pd.Timedelta],Union[int,float,pd.Timedelta],Union[int,float,pd.Timedelta])=None,method:str=None,smooth_factor:Union[int,float] = 1, ts_grain:Union[int,float,pd.Timedelta] = None,ax=None,where='post',**kargs):
         if ax is None:
             _, ax = plt.subplots()
 
@@ -320,35 +320,57 @@ class Step(AbstractStep):
         if color is None:
             color=Step.get_default_plot_color()
 
-        if self._start_ts == -np.inf:
-            min_ts = 0
-        else:
-            min_ts = float(0.98*self._start_ts)
-
-        if self._end is None:
+        if plot_range is None:
             if self._start_ts == -np.inf:
-                max_ts = 1
+                min_ts = 0
             else:
-                max_ts = float(1.02*self._start_ts)
-        else:
-            max_ts = float(1.02*self._end._start_ts)
-        
-        if self._using_dt:
-            if ts_grain==None:
-                ts_grain = pd.Timedelta(minutes=10)
-                
-            min_value = pd.Timestamp.fromtimestamp(min_ts)-ts_grain
-            max_value = pd.Timestamp.fromtimestamp(max_ts)
+                min_ts = float(0.98*self._start_ts)
 
-            tsx = np.arange(min_value, max_value, ts_grain).astype(pd.Timestamp)
-        else:
-            if ts_grain==None:
-                ts_grain = 0.01
+            if self._end is None:
+                if self._start_ts == -np.inf:
+                    max_ts = 1
+                else:
+                    max_ts = float(1.02*self._start_ts)
+            else:
+                max_ts = float(1.02*self._end._start_ts)
             
-            min_value = min_ts-ts_grain
-            max_value = max_ts
+            if self._using_dt:
+                if ts_grain==None:
+                    #TODO: need to detect scale from step definitions
+                    ts_grain = pd.Timedelta(minutes=10)
+                    
+                min_value = pd.Timestamp.fromtimestamp(min_ts)-ts_grain
+                max_value = pd.Timestamp.fromtimestamp(max_ts)
 
-            tsx = np.arange(min_value, max_value, ts_grain)
+                tsx = np.arange(min_value, max_value, ts_grain).astype(pd.Timestamp)
+            else:
+                if ts_grain==None:
+                    ts_grain = 0.01
+                
+                min_value = min_ts-ts_grain
+                max_value = max_ts
+
+                tsx = np.arange(min_value, max_value, ts_grain)
+        else:
+            min_value = plot_range[0]
+            max_value = plot_range[1]
+
+            if self._using_dt:
+                if len(plot_range) < 3:
+                    #TODO: need to detect scale from step definitions
+                    ts_grain = pd.Timedelta(minutes=10)
+                else:
+                    ts_grain = plot_range[2]
+
+                tsx = tsx = np.arange(min_value, max_value, ts_grain).astype(pd.Timestamp)
+            else:
+                if len(plot_range) < 3:
+                    #TODO: need to detect scale from step definitions
+                    ts_grain = 0.01
+                else:
+                    ts_grain = plot_range[2]
+                
+                tsx = tsx = np.arange(min_value, max_value, ts_grain)
 
 
         if method == 'pretty':

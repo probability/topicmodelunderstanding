@@ -9,3 +9,6 @@ from hotstepper.Basis import Basis
 from hotstepper.Step import Step
 from hotstepper.Steps import Steps
 from hotstepper.Steps import Analysis
+
+import warnings
+warnings.filterwarnings("ignore")
