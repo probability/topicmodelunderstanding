@@ -506,10 +506,11 @@ class Steps(AbstractStep):
 
             return combine
         else:
-            if self._using_dt:
-                combine.add([Step(Steps.get_epoch_start(),weight=other)])
-            else:
-                combine.add([Step(-np.Inf,weight=other)])
+            combine.add([Step(start=None,use_datetime=self._using_dt,weight=other)])
+            # if self._using_dt:
+            #     combine.add([Step(Steps.get_epoch_start(),weight=other)])
+            # else:
+            #     combine.add([Step(-np.Inf,weight=other)])
 
             return combine
 
@@ -662,7 +663,8 @@ class Steps(AbstractStep):
             self._base = new_basis.base()
         else:
             for s in self._steps:
-                s.rebase(new_basis)
+                if s._base is not Basis.constant:
+                    s.rebase(new_basis)
 
     def clip(self,lbound:T=None,ubound:T=None) -> Steps:
         
@@ -676,19 +678,19 @@ class Steps(AbstractStep):
         if lbound is None and ubound is None:
             return self
         elif lbound is None:
-            new_steps = np.array([Step(start=k,weight=v) for k,v in data.items() if (v != 0) and (k < ubound)])
+            new_steps = np.array([Step(start=k,weight=v) for k,v in data.items() if (v != 0) and (k <= ubound)])
             
             clip_end = (self.step(ubound-delta))[0]
             new_steps = np.append(new_steps,Step(start=ubound,weight=-1*clip_end))
 
         elif ubound is None:
-            new_steps = np.array([Step(start=k,weight=v) for k,v in data.items() if (v != 0) and (k > lbound)])
+            new_steps = np.array([Step(start=k,weight=v) for k,v in data.items() if (v != 0) and (k >= lbound)])
 
             clip_start = (self.step(lbound+delta))[0]
             new_steps = np.append(new_steps,Step(start=lbound,weight=clip_start))
 
         else:
-            new_steps = np.array([Step(start=k,weight=v) for k,v in data.items() if (v != 0) and (k > lbound) and (k < ubound)])
+            new_steps = np.array([Step(start=k,weight=v) for k,v in data.items() if (v != 0) and (k >= lbound) and (k <= ubound)])
 
             clip_start = (self.step(lbound+delta))[0]
             clip_end = (self.step(ubound-delta))[0]
