@@ -63,7 +63,11 @@ class Analysis():
 
     @staticmethod
     def span_and_weights(st:Steps) -> list(T):
-        step_ts = np.array([s.start_ts() for s in st.steps()])
+        if st.using_datetime():
+            step_ts = np.array([k.timestamp() for k in st.step_keys()])
+        else:
+            step_ts = np.array([k for k in st.step_keys()])
+
         span = np.max(step_ts) - np.min(step_ts)
         span_deltas = np.diff(step_ts)
         weights = np.divide(span_deltas,span)
@@ -72,7 +76,7 @@ class Analysis():
 
     @staticmethod
     def mean_integrate(st:Steps) -> list(T):
-        steps_raw = st.steps_values()
+        steps_raw = st.step_values()
         _,_,span, weight = Analysis.span_and_weights(st)
         mean = np.dot(steps_raw[0:-1],weight)
         var = np.dot(np.power(steps_raw[0:-1],2),weight) - mean**2
@@ -105,20 +109,20 @@ class Analysis():
     
     @staticmethod
     def percentile(st:Steps, percent) -> T:
-        steps_raw = st.steps_values()
+        steps_raw = st.step_values()
         return np.percentile(steps_raw,percent)
 
     @staticmethod
     def min(st:Steps) -> T:
-        return np.min(st.steps_values())
+        return np.min(st.step_values())
 
     @staticmethod
     def max(st:Steps) -> T:
-        return np.max(st.steps_values())
+        return np.max(st.step_values())
 
     @staticmethod
     def mode(st:Steps, policy='omit') -> T:
-        m,c = stats.mode(st.steps_values(),nan_policy=policy)
+        m,c = stats.mode(st.step_values(),nan_policy=policy)
         return m[0]
 
     @staticmethod
@@ -166,10 +170,8 @@ class Steps(AbstractStep):
         self._basis = basis
         self._using_dt = use_datetime
         self._base = basis.base()
-        self._cumsum = np.array([])
         self._cummulative = SortedDict()
 
-        
 
     @staticmethod
     def aggregate(stepss: list(Optional[Steps]), aggfunc:cp.ufunc, sample_points:list(T)=None) -> Steps:
@@ -304,6 +306,70 @@ class Steps(AbstractStep):
         else:
             raise TypeError("input data must be a dictionary")
         
+
+    @staticmethod
+    def read_dataframe_none(data:pd.DataFrame,start:str='start',end:str=None,weight:str=None,use_datetime:bool = False, convert_delta:bool = False) -> Steps:
+        """
+        Read a Pandas dataframe with values that represent either the cummulative value of the data steps or the direct step
+        values seperately. 
+
+        Parameters
+        ==============
+        data : Pandas.DataFrame. A dataframe representing the data to convert to steps.
+
+        start : str, (default = 'start'). The name of the column containing the start data.
+
+        end : str, (default = None). The name of the column containing the end data.
+
+        weight : str, (default = None). The name of the column containg the step weight data.
+
+        use_datetime : bool, (default = False). Assume start and end fields are of datetime format.
+
+        convert_delta : bool, (default = False). Assume values are individual step weights (default), or convert values
+        by performing a delta between adjacent values.
+
+        Returns
+        ============
+        Steps : A new steps object representing the input data.
+        
+        """
+
+        if isinstance(data,pd.DataFrame):
+            if data[start].dtypes == np.dtype('datetime64[ns]') or use_datetime:
+                use_datetime = True
+                st = Steps(use_datetime)
+
+                if end is not None:
+                    if data[end].dtypes == np.dtype('datetime64[ns]') or use_datetime:         
+                        if weight is None:
+                            return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),None),end = Steps._fill_missing(pd.Timestamp(x[end]),None),use_datetime=use_datetime),axis=1))
+                        else:
+                            return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),None),end = Steps._fill_missing(pd.Timestamp(x[end]),None),weight = x[weight],use_datetime=use_datetime),axis=1))
+                    else:
+                        raise TypeError("end data must be same type as start data") 
+                else:
+                    if weight is None:
+                        return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),None),use_datetime=use_datetime),axis=1))
+                    else:
+                        return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),None),weight=x[weight],use_datetime=use_datetime),axis=1))
+            else:# data[start].dtypes in valid_input_types:
+                st = Steps(False)
+                if end is not None:
+                    if data[end].dtypes in valid_input_types:            
+                        if weight is None:
+                            return st.add(data.apply(lambda x: Step(start = x[start],end = x[end]),axis=1))
+                        else:
+                            return st.add(data.apply(lambda x: Step(start = x[start],end = x[end],weight = x[weight]),axis=1))
+                    else:
+                        raise TypeError("end data must be same type as start data") 
+                else:
+                    if weight is None:
+                        return st.add(data.apply(lambda x: Step(start = x[start]),axis=1))
+                    else:
+                        return st.add(data.apply(lambda x: Step(start = x[start],weight=x[weight]),axis=1))   
+        else:
+            raise TypeError("input data must be a Dataframe")
+
 
     @staticmethod
     def read_dataframe(data:pd.DataFrame,start:str='start',end:str=None,weight:str=None,use_datetime:bool = False, convert_delta:bool = False) -> Steps:
@@ -488,7 +554,6 @@ class Steps(AbstractStep):
         """
 
         self._steps = np.array([],dtype=Step)
-        self._cumsum = np.array([])
         self._cummulative = SortedDict()
         
     def add(self,steps:list(Step)) -> Steps:
@@ -510,11 +575,9 @@ class Steps(AbstractStep):
         self._steps = np.append(self._steps,copy.deepcopy(steps))
         self._steps = np.append(self._steps,copy.deepcopy(end_steps))
 
-        #self._steps_ends = np.append(self._steps_ends,copy.deepcopy(end_steps))
-
-        self._steps = np.sort(self._steps)
-        self._cumsum = np.cumsum([s.weight() for s in self._steps])
+        #self._steps = np.sort(self._steps)
         self._cummulative = self.to_dict()
+
         return self
 
     def __add__(self,other:V) -> Steps:
@@ -533,7 +596,9 @@ class Steps(AbstractStep):
         """
         combine = self.copy()
         if type(other) == Step:
-            combine.add([copy.deepcopy(other)])
+            sc = copy.deepcopy(other)
+            sc._using_dt = self._using_dt
+            combine.add([sc])
                 
             return combine
         
@@ -542,11 +607,7 @@ class Steps(AbstractStep):
 
             return combine
         else:
-            combine.add([Step(start=None,use_datetime=self._using_dt,weight=other)])
-            # if self._using_dt:
-            #     combine.add([Step(Steps.get_epoch_start(),weight=other)])
-            # else:
-            #     combine.add([Step(-np.Inf,weight=other)])
+            combine.add([Step(use_datetime=self._using_dt,weight=other)])
 
             return combine
 
@@ -579,10 +640,11 @@ class Steps(AbstractStep):
             sub_steps = [Step(start=s.start(),weight=-1*s.weight()) for s in other_steps]
             
             combine.add(sub_steps)
+
             return combine
         else:
-            combine.add([Step(start=None,use_datetime=self._using_dt,weight=-1*other)])
-            #combine.add([Step(-np.Inf,weight=-1*other)])
+            combine.add([Step(use_datetime=self._using_dt,weight=-1*other)])
+
             return combine
     
     def using_datetime(self) -> bool:
@@ -590,16 +652,13 @@ class Steps(AbstractStep):
     
     def copy(self) -> Steps:
         return copy.deepcopy(self)
-    
-    def steps_values(self) -> np.ndarray:
-        return self._cumsum
         
     def steps(self) -> list(Step):
         return self._steps
 
 
     def ecdf(self):
-        x = np.sort(self._cumsum)
+        x = np.sort(self.step_values())
         y = np.arange(0, len(x)) / len(x)
 
         return x,y
@@ -774,8 +833,8 @@ class Steps(AbstractStep):
         self.add(new_steps)
 
 
-    def step_values(self) -> list(T):
-        return self._cumsum
+    def step_values(self) -> np.ndarray:
+        return np.array(self._cummulative.values())
     
     def step_keys(self) -> list(T):
         return list(self._cummulative.keys())
@@ -783,10 +842,17 @@ class Steps(AbstractStep):
     
     def to_dict(self,use_cummulative:bool = True, only_ends:bool = False) -> SortedDict:
         data:defaultdict = defaultdict(lambda:0)
-        
+
         if use_cummulative:
-            for s, cs in zip(self._steps,self._cumsum):
-                data[s.start()] = cs
+            if self._using_dt:
+                all_keys = [s.start() for s in self._steps if s.start() != Steps.get_epoch_start()]
+            else:
+                all_keys = [s.start() for s in self._steps if s.start() != -np.inf]
+
+            all_values = self.step(all_keys)
+
+            for k,v in zip(all_keys, all_values):
+                data[k] = v
         else:
             for s in self._steps:
                 if only_ends and s.end() is not None:
@@ -862,7 +928,13 @@ class Steps(AbstractStep):
     def smooth_plot(self,smooth_factor:Union[int,float] = None, ts_grain:Union[int,float,pd.Timedelta] = None,ax=None,where='post',**kargs):
         return self.plot(method='smooth',smooth_factor=smooth_factor, ts_grain=ts_grain,ax=ax,where=where,**kargs)
 
-    def plot(self,plot_range:list(Union[int,float,pd.Timedelta],Union[int,float,pd.Timedelta],Union[int,float,pd.Timedelta])=None,method:str=None, plot_start=None,plot_end=None,smooth_factor:Union[int,float] = None, ts_grain:Union[int,float,pd.Timedelta] = None,ax=None,where='post',**kargs):
+    def plot(self,plot_range:list(Union[int,float,pd.Timedelta],
+        Union[int,float,pd.Timedelta],Union[int,float,pd.Timedelta])=None,
+        method:str=None, plot_start=None,plot_end=None,
+        smooth_factor:Union[int,float] = None, 
+        ts_grain:Union[int,float,pd.Timedelta] = None,
+        ax=None,where='post',**kargs):
+
         if ax is None:
             _, ax = plt.subplots()
         
@@ -970,7 +1042,8 @@ class Steps(AbstractStep):
             new_instance = Steps(use_datetime=self._using_dt,basis=self._basis)
             new_steps = []
             
-            mask = np.where(op_func(self._cumsum,other), True,False)
+            mask = np.where(op_func(self.step_values(),other), True,False)
+            #mask = np.where(op_func(self._cumsum,other), True,False)
             
             first = True
             st = None
@@ -1008,7 +1081,8 @@ class Steps(AbstractStep):
             
             # we use cumsum to ensure we have the same number of values as steps,
             # since some steps can start at the same point
-            mask = np.where(op_func(self._cumsum,other), True,False)
+            #mask = np.where(op_func(self._cumsum,other), True,False)
+            mask = np.where(op_func(self.step_values(),other), True,False)
             
             first = True
             st = None
@@ -1207,6 +1281,9 @@ class Steps(AbstractStep):
     def mean(self):
         return Analysis.mean(self)
     
+    def std(self):
+        return np.sqrt(Analysis.var(self))
+
     def var(self):
         return Analysis.var(self)
 
@@ -1223,7 +1300,8 @@ class Steps(AbstractStep):
         return Analysis.percentile(self, 50)
     
     def pacf(self, maxlags:int = None):
-        l = len(self._cumsum)
+        #l = len(self._cumsum)
+        l = len(self.step_values())
 
         if (maxlags is None) or (maxlags >= l):
             maxlags = int(0.1*l) 

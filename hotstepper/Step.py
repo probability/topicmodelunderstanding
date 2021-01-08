@@ -29,7 +29,7 @@ def get_keys(val, is_dt = False, is_inf = False):
         return val, val.timestamp()
     else:
         if is_inf:
-            val = 0
+            val = -np.inf
 
         return val, val
 
@@ -288,14 +288,6 @@ class Step(AbstractStep):
     def __truediv__(self,other:S) -> Step:
         return self*other**-1
 
-                # if self._using_dt:
-                #     nstart_dt = pd.Timestamp.fromtimestamp(nstart)
-                #     nend_dt = pd.Timestamp.fromtimestamp(nend)
-                # else:
-                #     nstart_dt = nstart
-                #     nend_dt = nend
-                #     nend_max_dt = end_max
-
     def __mul__(self,other:S) -> Step:
         t = type(other)
         s = self
@@ -412,11 +404,7 @@ class Step(AbstractStep):
         #             #TODO: need to detect scale from step definitions
         #             ts_grain = pd.Timedelta(minutes=10)
                 
-        #         if self._start == Step.get_epoch_start():
-        #             min_value = Step.get_epoch_start()-pd.Timedelta(days=1)
-        #             max_value = Step.get_epoch_start()+pd.Timedelta(days=1)
-        #         else:
-        #             min_value = pd.Timestamp.fromtimestamp(min_ts)-ts_grain
+        #           min_value = pd.Timestamp.fromtimestamp(min_ts)-ts_grain
         #             max_value = pd.Timestamp.fromtimestamp(max_ts)
 
         #         tsx = np.arange(min_value, max_value, ts_grain).astype(pd.Timestamp)
