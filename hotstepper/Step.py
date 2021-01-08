@@ -287,76 +287,61 @@ class Step(AbstractStep):
 
     def __truediv__(self,other:S) -> Step:
         return self*other**-1
-        
+
+                # if self._using_dt:
+                #     nstart_dt = pd.Timestamp.fromtimestamp(nstart)
+                #     nend_dt = pd.Timestamp.fromtimestamp(nend)
+                # else:
+                #     nstart_dt = nstart
+                #     nend_dt = nend
+                #     nend_max_dt = end_max
+
     def __mul__(self,other:S) -> Step:
         t = type(other)
         s = self
-        second_output = False
         new_weight = self._weight
-        end_weight = None
-        
+
         if t in [int,float]:
             new_weight *= other
-
             if self._end is None:
-                s = Step(start=self._start,weight=new_weight)
-                s._direction = self._direction
-                return s
+                return Step(start=self._start,weight=new_weight)
             else:
-                s = Step(start=s._start,end=self._end._start,weight=new_weight)
-                s._direction = self._direction
-                return s
-        
+                return Step(start=s._start,end=self._end._start,weight=new_weight)
+
         elif t == Step:
             new_weight *= other._weight
-            
+
             if self._end is None:
                 se = np.inf
             else:
-                se = self._end._start
-                if self._end._weight !=self._weight:
-                    end_weight = self._end._weight*other._weight
-                    second_output = True
-                
+                se = self._end._start_ts
+
             if other._end is None:
                 oe = np.inf
             else:
-                oe = other._end._start
-                if other._end._weight !=other._weight:
-                    end_weight = self._weight*other._end._weight
-                    second_output = True
-            
-            if self._direction == 1 and other._direction == 1:
-                start = max(self._start,other._start)
-                end = min(se,oe)
-            else: # self._direction == -1 or other._direction == -1:
-                start = min(self._start,other._start)
-                end = min(se,oe)
-                end_max = max(se,oe)
-                second_output = True
-            
+                oe = other._end._start_ts
 
-            if self._base == Basis.constant:
-                return other*self._weight
+            start = max(self._start_ts,other._start_ts)
+            end = min(se,oe)
 
-            if other._base == Basis.constant:
-                return self*other.weight()
-            
-            #TODO Add support to replicate the direction and assigned basis
             if start < end and start != np.inf:
-                if end == np.inf:
-                    return Step(start=start,weight=new_weight)
-                else:
-                    if second_output:
-                        s = Step(start=start,end=end,weight=new_weight)
-                        e = Step(start=end,end=end_max,weight=end_weight)
-                        s._end = e
-                        return s
+                if self._using_dt:
+                    nstart = pd.Timestamp.fromtimestamp(start)
+                    if end != np.inf:
+                        nend = pd.Timestamp.fromtimestamp(end)
                     else:
-                        return Step(start=start,end=end,weight=new_weight)
+                        nend = None
+                else:
+                    nstart = start
+                    nend = end
+
+                if end == np.inf:
+                    return Step(start=nstart,weight=new_weight)
+                else:
+                    return Step(start=nstart,end=nend,weight=new_weight)
             else:
                 return Step(start=self._start,weight=0)
-                    
+
 
     def __sub__(self,other:T) -> S:
         return self + other.reflect()
