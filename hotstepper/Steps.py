@@ -841,26 +841,28 @@ class Steps(AbstractStep):
     
     
     def to_dict(self,use_cummulative:bool = True, only_ends:bool = False) -> SortedDict:
-        data:defaultdict = defaultdict(lambda:0)
+        
 
         if use_cummulative:
-            if self._using_dt:
-                all_keys = [s.start() for s in self._steps if s.start() != Steps.get_epoch_start()]
-            else:
-                all_keys = [s.start() for s in self._steps if s.start() != -np.inf]
+            data:SortedDict = SortedDict()
 
+            all_keys = [s.start() for s in self._steps if s.start() != Steps.get_epoch_start(self._using_dt)]
             all_values = self.step(all_keys)
 
             for k,v in zip(all_keys, all_values):
                 data[k] = v
+
+            return data
         else:
+            data:defaultdict = defaultdict(lambda:0)
+
             for s in self._steps:
                 if only_ends and s.end() is not None:
                     data[s.end()] += s.weight()                    
                 else:
                     data[s.start()] += s.weight()
 
-        return SortedDict(data)
+            return SortedDict(data)
     
     def to_dataframe(self,mode:str = 'aggregate') -> pd.DataFrame:
 
@@ -1042,7 +1044,10 @@ class Steps(AbstractStep):
             new_instance = Steps(use_datetime=self._using_dt,basis=self._basis)
             new_steps = []
             
-            mask = np.where(op_func(self.step_values(),other), True,False)
+            #all_keys = 
+            all_values = self.step([s.start() for s in self._steps])
+
+            mask = np.where(op_func(all_values,other), True,False)
             #mask = np.where(op_func(self._cumsum,other), True,False)
             
             first = True
@@ -1053,20 +1058,26 @@ class Steps(AbstractStep):
                     if first:
                         st = s
                         first=False
-                        new_steps.append(Step(start=st.start(),weight=1))
+                        if st._direction ==1:
+                            new_steps.append(Step(start=st.start(),weight=1))
+                        else:
+                            new_steps.append(Step(end=st.start(),weight=1))
                         continue
                 else:
                     all_true = False
                     if not first:
                         first=True
-                        new_steps.append(Step(start=s.start(),weight=-1))
+                        if s._direction == 1:
+                            new_steps.append(Step(start=s.start(),weight=-1))
+                        else:
+                            new_steps.append(Step(end=s.start(),weight=-1))
                         st = None
 
             if all_true:
                 return new_instance.add([Step(start=st.start(),end=self._steps[-1].start(),weight=1),Step(start=self._steps[-1].start(),weight=1)])
             else:
                 last_step = new_steps[-1]
-                new_steps.append(Step(start=self._steps[-1].start(),weight=-1*last_step.weight()))
+                #new_steps.append(Step(start=self._steps[-1].start(),weight=-1*last_step.weight()))
                 new_steps.append(Step(start=self._steps[-1].start(),weight=last_step.weight()))
 
             new_instance.add(new_steps)
@@ -1082,7 +1093,8 @@ class Steps(AbstractStep):
             # we use cumsum to ensure we have the same number of values as steps,
             # since some steps can start at the same point
             #mask = np.where(op_func(self._cumsum,other), True,False)
-            mask = np.where(op_func(self.step_values(),other), True,False)
+            all_values = self.step([s.start() for s in self._steps])
+            mask = np.where(op_func(all_values,other), True,False)
             
             first = True
             st = None
@@ -1096,8 +1108,8 @@ class Steps(AbstractStep):
                         new_steps.append(Step(start=st.start(),weight=self._cummulative[st.start()]))
                         continue
                     elif not (st is None) and (s.start_ts() > st.start_ts()):
-                        mid_steps.append(Step(start=s.start(),weight=s.weight()))
-                        adj += s.weight()
+                        mid_steps.append(Step(start=s.start(),weight=s._weight))
+                        adj += s._weight
                 else:
                     all_true = False
                     if not first:

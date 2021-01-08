@@ -24,12 +24,12 @@ def get_keys(val, is_dt = False, is_inf = False):
 
     if is_dt or AbstractStep.is_date_time(val):
         if is_inf:
-            val = AbstractStep.get_epoch_start()
+            val = AbstractStep.get_epoch_start(True)
 
         return val, val.timestamp()
     else:
         if is_inf:
-            val = -np.inf
+            val = AbstractStep.get_epoch_start(False)
 
         return val, val
 

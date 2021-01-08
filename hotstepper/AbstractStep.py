@@ -30,13 +30,18 @@ class AbstractStep(metaclass=abc.ABCMeta):
         return '#9c00ff'
 
     @staticmethod
-    def get_epoch_start():
-        #return pd.Timestamp.min
-        return pd.Timestamp(2000,1,1)
+    def get_epoch_start(use_datetime:bool = True):
+        if use_datetime:
+            return pd.Timestamp.min
+        else:
+            return -np.inf
 
     @staticmethod
-    def get_epoch_end():
-        return pd.Timestamp.max
+    def get_epoch_end(use_datetime:bool = True):
+        if use_datetime:
+            return pd.Timestamp.max
+        else:
+            return -np.inf
 
     @staticmethod
     def simple_plot(xdata,ydata,cdata=None, ax=None,**kargs):
