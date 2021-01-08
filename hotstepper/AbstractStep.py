@@ -91,7 +91,7 @@ class AbstractStep(metaclass=abc.ABCMeta):
     def is_date_time(value:T) -> bool:
         return hasattr(value,'timestamp') and callable(value.timestamp)
     
-    __slots__ = ('_start','_start_ts','_using_dt','_weight','_end','_basis','_base')
+    __slots__ = ('_start','_start_ts','_using_dt','_weight','_end','_basis','_base','_direction')
     
     def __init__(self) -> None:
         super().__init__()

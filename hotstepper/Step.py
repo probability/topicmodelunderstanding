@@ -7,6 +7,7 @@ try:
 except ImportError:
     import numpy as cp
 
+import copy
 import pandas as pd
 from sortedcontainers import SortedDict
 from datetime import datetime
@@ -18,48 +19,65 @@ from hotstepper.AbstractStep import AbstractStep
 valid_input_types = (int,float,pd.Timestamp,datetime)
 T = Union[valid_input_types]
 S = Union[int,float,'Optional[Step]','Optional[Steps]']
-    
+
+def get_keys(val, is_dt = False, is_inf = False):
+
+    if is_dt or AbstractStep.is_date_time(val):
+        if is_inf:
+            val = AbstractStep.get_epoch_start()
+
+        return val, val.timestamp()
+    else:
+        if is_inf:
+            val = 0
+
+        return val, val
+
 class Step(AbstractStep):
     
     def __init__(self, start:T=None, end:T = None, weight:T = 1, basis:Basis = Basis(), use_datetime:bool = False) -> None:
         super().__init__()
-        
-        self._weight = weight
 
-        self._using_dt = use_datetime
+        end_weight = None
+        self._direction = 1
+        self._basis = basis
+        self._base = self._basis.base()
+        self._using_dt = use_datetime or Step.is_date_time(start) or Step.is_date_time(end)
 
-        if start is None:
+        if type(weight) in [list,tuple]:
+            self._weight = weight[0]
+
+            if len(weight) > 1:
+                end_weight = weight[1]
+        else:
+            self._weight = weight
+
+        if (start is not None) and (end is not None):
+            self._start, self._start_ts = get_keys(start, self._using_dt)
+            self._end = self.link_child(end,end_weight)
+
+        elif (start is not None) and (end is None):
+            self._start, self._start_ts = get_keys(start, self._using_dt)
+            self._end = None
+        elif (start is None) and (end is not None):
+            self._direction = -1
+            self._start, self._start_ts = get_keys(end, self._using_dt)
+            if end_weight is not None:
+                self._end = self.link_child(end,end_weight)
+            else:
+                self._end = None
+        else:
             self._basis = Basis(Basis.constant)
             self._base = self._basis.base()
+            self._start, self._start_ts = get_keys(start, self._using_dt,True)
+            self._end = None
 
-            if use_datetime or Step.is_date_time(end):
-                self._start = Step.get_epoch_start()
-                self._start_ts = self._start.timestamp()
-                self._using_dt = True
-            else:
-                self._start = 0
-                self._start_ts = self._start
+
+    def link_child(self,other:T,weight:T = None) -> Step:
+        if weight is None:
+            return Step(start=other,end=None,weight = -1*self._weight)
         else:
-            self._basis = basis
-            self._base = self._basis.base()
-
-            self._using_dt = Step.is_date_time(start)
-            self._start = start
-            
-            if self._using_dt:
-                self._start_ts = self._start.timestamp()
-            else:
-                self._start_ts = self._start
-
-
-        self._end = end
-
-        if end is not None:
-            self._end = self.link_child(end)
-
-
-    def link_child(self,other:T) -> Step:
-        return Step(start=other,end=None,weight = -1*self._weight)
+            return Step(start=other,end=None,weight=weight)
     
     def rebase(self,new_basis:Basis = Basis()) -> None:
         self._basis = new_basis
@@ -103,9 +121,9 @@ class Step(AbstractStep):
             x = np.arange(x.start,x.stop,x.step)
             
         if len(x) > 0 and Step.is_date_time(x[0]):
-            xf = cp.asarray([t.timestamp()-self._start_ts for t in x])
+            xf = cp.asarray([(t.timestamp()-self._start_ts)*self._direction for t in x])
         else:
-            xf = cp.asarray([t-self._start_ts for t in x])
+            xf = cp.asarray([(t-self._start_ts)*self._direction for t in x])
             
         result = self._weight*self._base(xf,self._basis.param)
         end_st = self._end
@@ -152,7 +170,7 @@ class Step(AbstractStep):
         else:
             xr = x
         
-        res = self._weight*self._base(xr-self._start_ts,self._basis.param)
+        res = self._weight*self._base((xr-self._start_ts)*self._direction,self._basis.param)
         del xr
         return res
     
@@ -166,7 +184,7 @@ class Step(AbstractStep):
         return self._end
     
     def weight(self) -> T:
-        return self._weight
+        return self._direction*self._weight
 
     def __irshift__(self,other:T) -> Step:
         t = type(other)
@@ -226,7 +244,7 @@ class Step(AbstractStep):
         if t == Step:
             from hotstepper.Steps import Steps
 
-            st = Steps(basis=self._basis)
+            st = Steps(use_datetime=self._using_dt)
             st.add([self,other])
             return st
         else:
@@ -264,20 +282,30 @@ class Step(AbstractStep):
         # return floor_result
         pass
 
+    def copy(self) -> Step:
+        return copy.deepcopy(self)
+
     def __truediv__(self,other:S) -> Step:
         return self*other**-1
         
     def __mul__(self,other:S) -> Step:
         t = type(other)
         s = self
+        second_output = False
         new_weight = self._weight
+        end_weight = None
         
         if t in [int,float]:
             new_weight *= other
+
             if self._end is None:
-                return Step(start=self._start,weight=new_weight)
+                s = Step(start=self._start,weight=new_weight)
+                s._direction = self._direction
+                return s
             else:
-                return Step(start=s._start,end=self._end._start,weight=new_weight)
+                s = Step(start=s._start,end=self._end._start,weight=new_weight)
+                s._direction = self._direction
+                return s
         
         elif t == Step:
             new_weight *= other._weight
@@ -286,20 +314,46 @@ class Step(AbstractStep):
                 se = np.inf
             else:
                 se = self._end._start
+                if self._end._weight !=self._weight:
+                    end_weight = self._end._weight*other._weight
+                    second_output = True
                 
             if other._end is None:
                 oe = np.inf
             else:
                 oe = other._end._start
-                
-            start = max(self._start,other._start)
-            end = min(se,oe)
+                if other._end._weight !=other._weight:
+                    end_weight = self._weight*other._end._weight
+                    second_output = True
             
+            if self._direction == 1 and other._direction == 1:
+                start = max(self._start,other._start)
+                end = min(se,oe)
+            else: # self._direction == -1 or other._direction == -1:
+                start = min(self._start,other._start)
+                end = min(se,oe)
+                end_max = max(se,oe)
+                second_output = True
+            
+
+            if self._base == Basis.constant:
+                return other*self._weight
+
+            if other._base == Basis.constant:
+                return self*other.weight()
+            
+            #TODO Add support to replicate the direction and assigned basis
             if start < end and start != np.inf:
                 if end == np.inf:
                     return Step(start=start,weight=new_weight)
                 else:
-                    return Step(start=start,end=end,weight=new_weight)
+                    if second_output:
+                        s = Step(start=start,end=end,weight=new_weight)
+                        e = Step(start=end,end=end_max,weight=end_weight)
+                        s._end = e
+                        return s
+                    else:
+                        return Step(start=start,end=end,weight=new_weight)
             else:
                 return Step(start=self._start,weight=0)
                     
@@ -311,7 +365,7 @@ class Step(AbstractStep):
         if self._end is None:
             return ':'.join([str(self._start),str(self._weight)])
         else:
-            return ':'.join([str(self._start),str(self._end),str(self._weight)])
+            return ':'.join([str(self._start),str(self._weight),str(self._end)])
     
     def integrate(self,upper:T, lower:T = 0) -> T:
         return self._weight*(self._basis.integrand(upper-self._start_ts) - self._basis.integrand(lower-self._start_ts))

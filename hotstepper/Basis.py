@@ -18,6 +18,10 @@ class Basis():
     def heaviside(x:list(T),s:float) -> np.ufunc:
         return cp.where(x >= 0,s,0)
 
+    # @staticmethod
+    # def negheaviside(x:list(T),s:float) -> np.ufunc:
+    #     return cp.where(x < 0,s,0)
+
     @staticmethod
     def constant(x:list(T),s:float) -> np.ufunc:
         return cp.ones(len(x))

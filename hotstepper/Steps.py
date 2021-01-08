@@ -145,12 +145,12 @@ class Steps(AbstractStep):
     basis: Basis ***default = Basis()***
     The is the basis function that will be used for all steps associated with thie step function. The default basis -> Basis() is the Heaviside function
     $
-        \theta(t) = \left\{
-                \begin{array}{ll}
-                    0 & \quad t < 0 \\
-                    1 & \quad t \geq 0
-                \end{array}
-            \right.
+        \\theta(t) = \\left\{
+                \\begin{array}{ll}
+                    0 & \\quad t < 0 \\
+                    1 & \\quad t \geq 0
+                \\end{array}
+            \\right.
         $
         where $t \in \mathbb{R}$
 
@@ -332,22 +332,60 @@ class Steps(AbstractStep):
         
         """
 
+        # if isinstance(data,pd.DataFrame):
+        #     if data[start].dtypes == np.dtype('datetime64[ns]') or use_datetime:
+        #         use_datetime = True
+        #         st = Steps(use_datetime)
+
+        #         if end is not None:
+        #             if data[end].dtypes == np.dtype('datetime64[ns]') or use_datetime:         
+        #                 if weight is None:
+        #                     return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),pd.Timestamp((data[start].min()).date())),end = Steps._fill_missing(pd.Timestamp(x[end]),None),use_datetime=use_datetime),axis=1))
+        #                 else:
+        #                     return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),pd.Timestamp((data[start].min()).date())),end = Steps._fill_missing(pd.Timestamp(x[end]),None),weight = x[weight],use_datetime=use_datetime),axis=1))
+        #             else:
+        #                 raise TypeError("end data must be same type as start data") 
+        #         else:
+        #             if weight is None:
+        #                 return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),None),use_datetime=use_datetime),axis=1))
+        #             else:
+        #                 return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),None),weight=x[weight],use_datetime=use_datetime),axis=1))
+        #     else:# data[start].dtypes in valid_input_types:
+        #         st = Steps(False)
+        #         if end is not None:
+        #             if data[end].dtypes in valid_input_types:            
+        #                 if weight is None:
+        #                     return st.add(data.apply(lambda x: Step(start = x[start],end = x[end]),axis=1))
+        #                 else:
+        #                     return st.add(data.apply(lambda x: Step(start = x[start],end = x[end],weight = x[weight]),axis=1))
+        #             else:
+        #                 raise TypeError("end data must be same type as start data") 
+        #         else:
+        #             if weight is None:
+        #                 return st.add(data.apply(lambda x: Step(start = x[start]),axis=1))
+        #             else:
+        #                 return st.add(data.apply(lambda x: Step(start = x[start],weight=x[weight]),axis=1))   
+        # else:
+        #     raise TypeError("input data must be a Dataframe")
+
         if isinstance(data,pd.DataFrame):
             if data[start].dtypes == np.dtype('datetime64[ns]') or use_datetime:
-                st = Steps(True)
+                use_datetime = True
+                st = Steps(use_datetime)
+
                 if end is not None:
                     if data[end].dtypes == np.dtype('datetime64[ns]') or use_datetime:         
                         if weight is None:
-                            return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),pd.Timestamp((data[start].min()).date())),end = Steps._fill_missing(pd.Timestamp(x[end]),None)),axis=1))
+                            return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),pd.Timestamp((data[start].min()).date())),end = Steps._fill_missing(pd.Timestamp(x[end]),None),use_datetime=use_datetime),axis=1))
                         else:
-                            return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),pd.Timestamp((data[start].min()).date())),end = Steps._fill_missing(pd.Timestamp(x[end]),None),weight = x[weight]),axis=1))
+                            return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),pd.Timestamp((data[start].min()).date())),end = Steps._fill_missing(pd.Timestamp(x[end]),None),weight = x[weight],use_datetime=use_datetime),axis=1))
                     else:
                         raise TypeError("end data must be same type as start data") 
                 else:
                     if weight is None:
-                        return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),None)),axis=1))
+                        return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),None),use_datetime=use_datetime),axis=1))
                     else:
-                        return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),None),weight=x[weight]),axis=1))
+                        return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),None),weight=x[weight],use_datetime=use_datetime),axis=1))
             else:# data[start].dtypes in valid_input_types:
                 st = Steps(False)
                 if end is not None:
@@ -362,9 +400,7 @@ class Steps(AbstractStep):
                     if weight is None:
                         return st.add(data.apply(lambda x: Step(start = x[start]),axis=1))
                     else:
-                        return st.add(data.apply(lambda x: Step(start = x[start],weight=x[weight]),axis=1))
-            #else:
-            #    raise TypeError("start data can only be intger, float or datetime")    
+                        return st.add(data.apply(lambda x: Step(start = x[start],weight=x[weight]),axis=1))   
         else:
             raise TypeError("input data must be a Dataframe")
 
@@ -483,16 +519,16 @@ class Steps(AbstractStep):
 
     def __add__(self,other:V) -> Steps:
         """
-        The '+' operation to add steps objects together like they are numbers.
+        The '+' operation to add int, float, step and steps objects like they are numbers.
 
         Parameters
         ==============
         other : int, float, step, steps. The thing to add to these steps, a single step or series of steps can be combined with the steps, an single int or float can also
-        be added, this will be converted to a single step and added to the steps series.
+        be added, this will be converted to a single step with a constant basis and added to the steps series.
 
         Returns
         ============
-        Steps : A new steps object consisting of this object and the additional step(s).
+        Steps : A new steps object consisting of this object with additional step objects representing the other operand.
         
         """
         combine = self.copy()
@@ -515,6 +551,20 @@ class Steps(AbstractStep):
             return combine
 
     def __sub__(self,other:V) -> Steps:
+        """
+        The '-' operation to subtract int, float, step and steps objects like they are numbers.
+
+        Parameters
+        ==============
+        other : int, float, step, steps. The thing to subtract from these steps, a single step or series of steps can be combined with the steps, a single int or float can also
+        be added, this will be converted to a single step with a constant basis and added to the steps series.
+
+        Returns
+        ============
+        Steps : A new steps object consisting of this object with additional step objects representing the other operand.
+        
+        """
+
         combine = self.copy()
         if type(other) == Step:
             if other.end() is None:
@@ -531,7 +581,8 @@ class Steps(AbstractStep):
             combine.add(sub_steps)
             return combine
         else:
-            combine.add([Step(-np.Inf,weight=-1*other)])
+            combine.add([Step(start=None,use_datetime=self._using_dt,weight=-1*other)])
+            #combine.add([Step(-np.Inf,weight=-1*other)])
             return combine
     
     def using_datetime(self) -> bool:
@@ -827,9 +878,9 @@ class Steps(AbstractStep):
                 ts_grain = pd.Timedelta(seconds=1)
             else:
                 ts_grain = 0.00001
-                
+
             zero_key = (raw_steps.keys())[0] - ts_grain
-            raw_steps[zero_key] = 0
+            raw_steps[zero_key] = self(zero_key)[0]
             ax.step(raw_steps.keys(),raw_steps.values(), where=where,color=color, **kargs)
 
         elif method == 'pretty':
@@ -842,7 +893,7 @@ class Steps(AbstractStep):
                 ts_grain = 0.00001
 
             zero_key = (raw_steps.keys())[0] - ts_grain
-            raw_steps[zero_key] = 0
+            raw_steps[zero_key] = self(zero_key)[0]
 
             Steps._prettyplot(raw_steps,plot_start=zero_key,plot_start_value=0,ax=ax,color=color,**kargs)
 
@@ -894,7 +945,7 @@ class Steps(AbstractStep):
                 ts_grain = 0.01
                 
             zero_key = (raw_steps.keys())[0] - ts_grain
-            raw_steps[zero_key] = 0
+            raw_steps[zero_key] = self(zero_key)[0]
             ax.step(raw_steps.keys(),raw_steps.values(), where=where,color=color, **kargs)
 
         return ax
