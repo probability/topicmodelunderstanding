@@ -20,19 +20,6 @@ valid_input_types = (int,float,pd.Timestamp,datetime)
 T = Union[valid_input_types]
 S = Union[int,float,'Optional[Step]','Optional[Steps]']
 
-def get_keys(val, is_dt = False, is_inf = False):
-
-    if is_dt or AbstractStep.is_date_time(val):
-        if is_inf:
-            val = AbstractStep.get_epoch_start(True)
-
-        return val, val.timestamp()
-    else:
-        if is_inf:
-            val = AbstractStep.get_epoch_start(False)
-
-        return val, val
-
 class Step(AbstractStep):
     
     def __init__(self, start:T=None, end:T = None, weight:T = 1, basis:Basis = Basis(), use_datetime:bool = False) -> None:
@@ -53,15 +40,15 @@ class Step(AbstractStep):
             self._weight = weight
 
         if (start is not None) and (end is not None):
-            self._start, self._start_ts = get_keys(start, self._using_dt)
+            self._start, self._start_ts = Step.get_keys(start, self._using_dt)
             self._end = self.link_child(end,end_weight)
 
         elif (start is not None) and (end is None):
-            self._start, self._start_ts = get_keys(start, self._using_dt)
+            self._start, self._start_ts = Step.get_keys(start, self._using_dt)
             self._end = None
         elif (start is None) and (end is not None):
             self._direction = -1
-            self._start, self._start_ts = get_keys(end, self._using_dt)
+            self._start, self._start_ts = Step.get_keys(end, self._using_dt)
             if end_weight is not None:
                 self._end = self.link_child(end,end_weight)
             else:
@@ -69,7 +56,7 @@ class Step(AbstractStep):
         else:
             self._basis = Basis(Basis.constant)
             self._base = self._basis.base()
-            self._start, self._start_ts = get_keys(start, self._using_dt,True)
+            self._start, self._start_ts = Step.get_keys(start, self._using_dt,True)
             self._end = None
 
 

@@ -308,7 +308,7 @@ class Steps(AbstractStep):
         
 
     @staticmethod
-    def read_dataframe_none(data:pd.DataFrame,start:str='start',end:str=None,weight:str=None,use_datetime:bool = False, convert_delta:bool = False) -> Steps:
+    def read_dataframe(data:pd.DataFrame,start:str='start',end:str=None,weight:str=None,use_datetime:bool = False, convert_delta:bool = False) -> Steps:
         """
         Read a Pandas dataframe with values that represent either the cummulative value of the data steps or the direct step
         values seperately. 
@@ -345,106 +345,6 @@ class Steps(AbstractStep):
                             return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),None),end = Steps._fill_missing(pd.Timestamp(x[end]),None),use_datetime=use_datetime),axis=1))
                         else:
                             return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),None),end = Steps._fill_missing(pd.Timestamp(x[end]),None),weight = x[weight],use_datetime=use_datetime),axis=1))
-                    else:
-                        raise TypeError("end data must be same type as start data") 
-                else:
-                    if weight is None:
-                        return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),None),use_datetime=use_datetime),axis=1))
-                    else:
-                        return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),None),weight=x[weight],use_datetime=use_datetime),axis=1))
-            else:# data[start].dtypes in valid_input_types:
-                st = Steps(False)
-                if end is not None:
-                    if data[end].dtypes in valid_input_types:            
-                        if weight is None:
-                            return st.add(data.apply(lambda x: Step(start = x[start],end = x[end]),axis=1))
-                        else:
-                            return st.add(data.apply(lambda x: Step(start = x[start],end = x[end],weight = x[weight]),axis=1))
-                    else:
-                        raise TypeError("end data must be same type as start data") 
-                else:
-                    if weight is None:
-                        return st.add(data.apply(lambda x: Step(start = x[start]),axis=1))
-                    else:
-                        return st.add(data.apply(lambda x: Step(start = x[start],weight=x[weight]),axis=1))   
-        else:
-            raise TypeError("input data must be a Dataframe")
-
-
-    @staticmethod
-    def read_dataframe(data:pd.DataFrame,start:str='start',end:str=None,weight:str=None,use_datetime:bool = False, convert_delta:bool = False) -> Steps:
-        """
-        Read a Pandas dataframe with values that represent either the cummulative value of the data steps or the direct step
-        values seperately. 
-
-        Parameters
-        ==============
-        data : Pandas.DataFrame. A dataframe representing the data to convert to steps.
-
-        start : str, (default = 'start'). The name of the column containing the start data.
-
-        end : str, (default = None). The name of the column containing the end data.
-
-        weight : str, (default = None). The name of the column containg the step weight data.
-
-        use_datetime : bool, (default = False). Assume start and end fields are of datetime format.
-
-        convert_delta : bool, (default = False). Assume values are individual step weights (default), or convert values
-        by performing a delta between adjacent values.
-
-        Returns
-        ============
-        Steps : A new steps object representing the input data.
-        
-        """
-
-        # if isinstance(data,pd.DataFrame):
-        #     if data[start].dtypes == np.dtype('datetime64[ns]') or use_datetime:
-        #         use_datetime = True
-        #         st = Steps(use_datetime)
-
-        #         if end is not None:
-        #             if data[end].dtypes == np.dtype('datetime64[ns]') or use_datetime:         
-        #                 if weight is None:
-        #                     return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),pd.Timestamp((data[start].min()).date())),end = Steps._fill_missing(pd.Timestamp(x[end]),None),use_datetime=use_datetime),axis=1))
-        #                 else:
-        #                     return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),pd.Timestamp((data[start].min()).date())),end = Steps._fill_missing(pd.Timestamp(x[end]),None),weight = x[weight],use_datetime=use_datetime),axis=1))
-        #             else:
-        #                 raise TypeError("end data must be same type as start data") 
-        #         else:
-        #             if weight is None:
-        #                 return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),None),use_datetime=use_datetime),axis=1))
-        #             else:
-        #                 return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),None),weight=x[weight],use_datetime=use_datetime),axis=1))
-        #     else:# data[start].dtypes in valid_input_types:
-        #         st = Steps(False)
-        #         if end is not None:
-        #             if data[end].dtypes in valid_input_types:            
-        #                 if weight is None:
-        #                     return st.add(data.apply(lambda x: Step(start = x[start],end = x[end]),axis=1))
-        #                 else:
-        #                     return st.add(data.apply(lambda x: Step(start = x[start],end = x[end],weight = x[weight]),axis=1))
-        #             else:
-        #                 raise TypeError("end data must be same type as start data") 
-        #         else:
-        #             if weight is None:
-        #                 return st.add(data.apply(lambda x: Step(start = x[start]),axis=1))
-        #             else:
-        #                 return st.add(data.apply(lambda x: Step(start = x[start],weight=x[weight]),axis=1))   
-        # else:
-        #     raise TypeError("input data must be a Dataframe")
-
-        if isinstance(data,pd.DataFrame):
-            if data[start].dtypes == np.dtype('datetime64[ns]') or use_datetime:
-                use_datetime = True
-                st = Steps(use_datetime)
-
-                if end is not None:
-                    if data[end].dtypes == np.dtype('datetime64[ns]') or use_datetime:         
-                        if weight is None:
-                            return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),pd.Timestamp((data[start].min()).date())),end = Steps._fill_missing(pd.Timestamp(x[end]),None),use_datetime=use_datetime),axis=1))
-                        else:
-                            return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),pd.Timestamp((data[start].min()).date())),end = Steps._fill_missing(pd.Timestamp(x[end]),None),weight = x[weight],use_datetime=use_datetime),axis=1))
                     else:
                         raise TypeError("end data must be same type as start data") 
                 else:
@@ -945,7 +845,8 @@ class Steps(AbstractStep):
             color=Steps.get_default_plot_color()
 
         if method == None:
-            raw_steps = self.to_dict()
+            #raw_steps = self.to_dict()
+            raw_steps = self._cummulative
             
             # small offset to ensure we plot the initial step transition
             if self._using_dt:
@@ -954,7 +855,7 @@ class Steps(AbstractStep):
                 ts_grain = 0.00001
 
             zero_key = (raw_steps.keys())[0] - ts_grain
-            raw_steps[zero_key] = self(zero_key)[0]
+            raw_steps[zero_key] = self([zero_key])
             ax.step(raw_steps.keys(),raw_steps.values(), where=where,color=color, **kargs)
 
         elif method == 'pretty':
@@ -967,7 +868,7 @@ class Steps(AbstractStep):
                 ts_grain = 0.00001
 
             zero_key = (raw_steps.keys())[0] - ts_grain
-            raw_steps[zero_key] = self(zero_key)[0]
+            raw_steps[zero_key] = self([zero_key])
 
             Steps._prettyplot(raw_steps,plot_start=zero_key,plot_start_value=0,ax=ax,color=color,**kargs)
 
@@ -1019,7 +920,7 @@ class Steps(AbstractStep):
                 ts_grain = 0.01
                 
             zero_key = (raw_steps.keys())[0] - ts_grain
-            raw_steps[zero_key] = self(zero_key)[0]
+            raw_steps[zero_key] = self([zero_key])
             ax.step(raw_steps.keys(),raw_steps.values(), where=where,color=color, **kargs)
 
         return ax
@@ -1108,8 +1009,8 @@ class Steps(AbstractStep):
                         new_steps.append(Step(start=st.start(),weight=self._cummulative[st.start()]))
                         continue
                     elif not (st is None) and (s.start_ts() > st.start_ts()):
-                        mid_steps.append(Step(start=s.start(),weight=s._weight))
-                        adj += s._weight
+                        mid_steps.append(Step(start=s.start(),weight=s.weight()))
+                        adj += s.weight()
                 else:
                     all_true = False
                     if not first:

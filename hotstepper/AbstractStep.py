@@ -44,6 +44,21 @@ class AbstractStep(metaclass=abc.ABCMeta):
             return -np.inf
 
     @staticmethod
+    def get_value(val, is_dt = False):
+        if is_dt:
+            return val.timestamp()
+        else:
+            return val
+
+    @staticmethod
+    def get_keys(val, is_dt = False, is_inf = False):
+
+        if is_inf:
+            val = AbstractStep.get_epoch_start(is_dt)
+        
+        return val, AbstractStep.get_value(val,is_dt)
+
+    @staticmethod
     def simple_plot(xdata,ydata,cdata=None, ax=None,**kargs):
         if ax is None:
             _, ax = plt.subplots()
