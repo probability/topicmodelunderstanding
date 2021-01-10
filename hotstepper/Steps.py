@@ -283,9 +283,9 @@ class Steps(AbstractStep):
         """
 
         if type(data) in [dict,SortedDict,OrderedDict,DefaultDict] :
-            if Steps.is_date_time(data.keys()[0]) or use_datetime:
+            if Steps.is_date_time(list(data.keys())[0]) or use_datetime:
                 st = Steps(True)
-            elif type(data.keys()[0]) in valid_input_types:
+            elif type(list(data.keys())[0]) in valid_input_types:
                 st = Steps()
             else:
                 raise TypeError("start data can only be intger, float or datetime")
@@ -429,7 +429,7 @@ class Steps(AbstractStep):
                 params['weight'] = 'weight'
 
 
-            if Steps.is_date_time(start[0]) or use_datetime:
+            if use_datetime or Steps.is_date_time(start[0]):
                 params['use_datetime'] = True
                 df_data.start = df_data.start.apply(pd.Timestamp)
                 
@@ -747,6 +747,8 @@ class Steps(AbstractStep):
             data:SortedDict = SortedDict()
 
             all_keys = [s.start() for s in self._steps if s.start() != Steps.get_epoch_start(self._using_dt)]
+
+            #much faster to get all values in one go!
             all_values = self.step(all_keys)
 
             for k,v in zip(all_keys, all_values):
@@ -994,7 +996,9 @@ class Steps(AbstractStep):
             # we use cumsum to ensure we have the same number of values as steps,
             # since some steps can start at the same point
             #mask = np.where(op_func(self._cumsum,other), True,False)
-            all_values = self.step([s.start() for s in self._steps])
+            all_keys = [s.start() for s in self._steps]
+            all_values = self.step(all_keys)
+            
             mask = np.where(op_func(all_values,other), True,False)
             
             first = True
