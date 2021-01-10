@@ -87,12 +87,15 @@ class Step(AbstractStep):
             return self._start_ts > other
     
     def __eq__(self, other:S) -> bool:
+
         if type(other) is Step:
-            return self._start_ts == other.start_ts() and self._weight == other.weight()
-        elif type(other) is pd.Timestamp:
-            return self._start_ts == other.timestamp()
+            return self._start_ts == other._start_ts and self._weight == other._weight and self._direction == other._direction and self._end == other._end
         else:
-            return self._start_ts == other
+            raise TypeError('Can only directly compare step with step object.')
+        # elif type(other) is pd.Timestamp:
+        #     return self._start_ts == other.timestamp()
+        # else:
+        #     return self._start_ts == other
     
     def __getitem__(self,x:T) -> T:
         return self.step(x)
@@ -161,6 +164,10 @@ class Step(AbstractStep):
         del xr
         return res
     
+
+    def direction(self) -> T:
+        return self._direction
+
     def start_ts(self) -> T:
         return self._start_ts
     
@@ -242,53 +249,71 @@ class Step(AbstractStep):
             return st
 
     def reflect(self,reflect_point:float = 0) -> Step:
-        if self._end is None:
-            return Step(start=self._start,weight=reflect_point-1*self._weight)
-        else:
-            return Step(start=self._start,end=self._end._start,weight=reflect_point-1*self._weight)
+        reflected_step = copy.deepcopy(self)
+
+        Step._modify_step(reflected_step,'_weight',reflect_point-1*reflected_step._weight)
+
+        if reflected_step._end is not None:
+            Step._modify_step(reflected_step._end,'_weight',reflect_point-1*reflected_step._end._weight)
+
+        return reflected_step
 
     def normalise(self,norm_value:float = 1) -> Step:
-        if self._end is None:
-            return Step(start=self._start,weight=norm_value*np.sign(self._weight))
-        else:
-            return Step(start=self._start,end=self._end._start,weight=norm_value*np.sign(self._weight))
+        normed_step = copy.deepcopy(self)
+
+        Step._modify_step(normed_step,'_weight',norm_value*np.sign(normed_step._weight))
+
+        if normed_step._end is not None:
+            Step._modify_step(normed_step._end,'_weight',norm_value*np.sign(normed_step._end._weight))
+
+        return normed_step
         
     def __pow__(self,power_val:Union[int,float]) -> Step:
-        if self._end is None:
-            return Step(start=self._start,weight=self._weight**power_val)
-        else:
-            return Step(start=self._start,end=self._end._start,weight=self._weight**power_val)
+        pow_step = copy.deepcopy(self)
+
+        Step._modify_step(pow_step,'_weight',pow_step._weight**power_val)
+
+        if pow_step._end is not None:
+            Step._modify_step(pow_step._end,'_weight',np.sign(pow_step._end._weight)*pow_step._end._weight**power_val)
+
+        return pow_step
 
     def __floordiv__(self,other:S) -> Step:
-        # result = self*other**-1
-        # if result.end() is None:
-        #     floor_result = Step(result.start(),np.floor(result.weight()))
-        # else:
-        #     floor_result = Step(result.start(),result.end().start(),np.floor(result.weight()))
-        
-        # return floor_result
-        pass
+        """
+        For now this is the same as true div, both only use the common overlap, so if demoninator step is zero in a non-zero region of the numerator, this is non-overlap and returns zero.
+        """
+        return self*other**-1
 
     def copy(self) -> Step:
         return copy.deepcopy(self)
 
     def __truediv__(self,other:S) -> Step:
+        """
+        A common overlap division, so if demoninator step is zero in a non-zero region of the numerator, this is non-overlap and returns zero.
+        """
+
         return self*other**-1
 
     def __mul__(self,other:S) -> Step:
         t = type(other)
         s = self
-        new_weight = self._weight
+        new_weight = self.weight()
 
         if t in [int,float]:
             new_weight *= other
-            if self._end is None:
-                return Step(start=self._start,weight=new_weight)
-            else:
-                return Step(start=s._start,end=self._end._start,weight=new_weight)
+
+            new_step = copy.deepcopy(self)
+
+            Step._modify_step(new_step,'_weight',new_weight)
+
+            if new_step._end is not None:
+                new_weight = new_step._end._weight*other
+                Step._modify_step(new_step._end,'_weight',new_weight)
+
+            return new_step
 
         elif t == Step:
-            new_weight *= other._weight
+            new_weight *= other.weight()
 
             if self._end is None:
                 se = np.inf
@@ -315,7 +340,12 @@ class Step(AbstractStep):
                     nend = end
 
                 if end == np.inf:
-                    return Step(start=nstart,weight=new_weight)
+                    if self._direction == -1 or other.direction() == -1:
+                        new_s = Step(start=nstart,weight=new_weight)
+                        Step._modify_step(new_s,'_direction',-1)
+                        return new_s
+                    else:
+                        return Step(start=nstart,weight=new_weight)
                 else:
                     return Step(start=nstart,end=nend,weight=new_weight)
             else:

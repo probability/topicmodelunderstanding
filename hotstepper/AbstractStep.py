@@ -51,6 +51,14 @@ class AbstractStep(metaclass=abc.ABCMeta):
             return val
 
     @staticmethod
+    def _modify_step(obj, attr:str,new_value, change_end:bool = False):
+        if obj is not None and hasattr(obj,attr):
+            setattr(obj,attr,new_value)
+
+        if change_end and obj._end is not None and hasattr(obj._end,attr):
+            setattr(obj,attr,new_value)
+
+    @staticmethod
     def get_keys(val, is_dt = False, is_inf = False):
 
         if is_inf:
@@ -128,6 +136,7 @@ class AbstractStep(metaclass=abc.ABCMeta):
     def start(self) -> T:
         pass
     
+
     @abc.abstractmethod
     def start_ts(self) -> T:
         pass
