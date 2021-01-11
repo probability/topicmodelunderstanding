@@ -1,7 +1,9 @@
 .vscode
 .git
 .gitignore
+.pytest_cache
 docs/__pycache__
+tests/__pycache__
 hotstepper/__pycache__
 notebooks/imports/__pycache__
 notebooks/images.ipynb
