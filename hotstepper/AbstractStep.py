@@ -32,16 +32,16 @@ class AbstractStep(metaclass=abc.ABCMeta):
     @staticmethod
     def get_epoch_start(use_datetime:bool = True):
         if use_datetime:
-            return pd.Timestamp.min
+            return datetime(1980,1,1)
         else:
             return -np.inf
 
     @staticmethod
     def get_epoch_end(use_datetime:bool = True):
         if use_datetime:
-            return pd.Timestamp.max
+            return datetime(2200,1,1)
         else:
-            return -np.inf
+            return np.inf
 
     @staticmethod
     def get_value(val, is_dt = False):
@@ -61,9 +61,9 @@ class AbstractStep(metaclass=abc.ABCMeta):
     @staticmethod
     def get_keys(val, is_dt = False, is_inf = False):
 
-        if is_inf:
+        if is_inf or val is None:
             val = AbstractStep.get_epoch_start(is_dt)
-        
+
         return val, AbstractStep.get_value(val,is_dt)
 
     @staticmethod

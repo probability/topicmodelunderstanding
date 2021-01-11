@@ -56,7 +56,7 @@ class Step(AbstractStep):
         else:
             self._basis = Basis(Basis.constant)
             self._base = self._basis.base()
-            self._start, self._start_ts = Step.get_keys(start, self._using_dt,True)
+            self._start, self._start_ts = Step.get_keys(start, self._using_dt,is_inf=True)
             self._end = None
 
 
@@ -330,9 +330,9 @@ class Step(AbstractStep):
 
             if start < end and start != np.inf:
                 if self._using_dt:
-                    nstart = pd.Timestamp.fromtimestamp(start)
+                    nstart = datetime.fromtimestamp(start)
                     if end != np.inf:
-                        nend = pd.Timestamp.fromtimestamp(end)
+                        nend = datetime.fromtimestamp(end)
                     else:
                         nend = None
                 else:
@@ -341,15 +341,15 @@ class Step(AbstractStep):
 
                 if end == np.inf:
                     if self._direction == -1 or other.direction() == -1:
-                        new_s = Step(start=nstart,weight=new_weight)
+                        new_s = Step(start=nstart,weight=new_weight,use_datetime=self._using_dt)
                         Step._modify_step(new_s,'_direction',-1)
                         return new_s
                     else:
-                        return Step(start=nstart,weight=new_weight)
+                        return Step(start=nstart,weight=new_weight,use_datetime=self._using_dt)
                 else:
-                    return Step(start=nstart,end=nend,weight=new_weight)
+                    return Step(start=nstart,end=nend,weight=new_weight,use_datetime=self._using_dt)
             else:
-                return Step(start=self._start,weight=0)
+                return Step(start=self._start,weight=0,use_datetime=self._using_dt)
 
 
     def __sub__(self,other:T) -> S:
@@ -387,8 +387,8 @@ class Step(AbstractStep):
             if ts_grain==None:
                 ts_grain = pd.Timedelta(minutes=10)
                 
-            min_value = pd.Timestamp.fromtimestamp(min_ts)-ts_grain
-            max_value = pd.Timestamp.fromtimestamp(max_ts)
+            min_value = datetime.fromtimestamp(min_ts)-ts_grain
+            max_value = datetime.fromtimestamp(max_ts)
 
             tsx = np.arange(min_value, max_value, ts_grain).astype(pd.Timestamp)
         else:

@@ -30,7 +30,7 @@ from hotstepper.Step import Step
 
 V = Union[Step,'Optional[Steps]',int,float,np.float64, np.int32]
 
-valid_input_types = (int,float,np.float64, np.int32,pd.Timestamp,datetime)
+valid_input_types = (int,float,np.float64, np.int32,datetime,datetime)
 T = Union[valid_input_types]
 
 class Analysis():
@@ -243,7 +243,7 @@ class Steps(AbstractStep):
         return new_steps.add(step_stack)
 
     @staticmethod
-    def _fill_missing(dt, fill) -> pd.Timestamp:
+    def _fill_missing(dt, fill) -> datetime:
         if pd.isnull(dt):
             return fill
         else:
@@ -342,16 +342,16 @@ class Steps(AbstractStep):
                 if end is not None:
                     if data[end].dtypes == np.dtype('datetime64[ns]') or use_datetime:         
                         if weight is None:
-                            return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),None),end = Steps._fill_missing(pd.Timestamp(x[end]),None),use_datetime=use_datetime),axis=1))
+                            return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(datetime(x[start]),None),end = Steps._fill_missing(datetime(x[end]),None),use_datetime=use_datetime),axis=1))
                         else:
-                            return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),None),end = Steps._fill_missing(pd.Timestamp(x[end]),None),weight = x[weight],use_datetime=use_datetime),axis=1))
+                            return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(datetime(x[start]),None),end = Steps._fill_missing(datetime(x[end]),None),weight = x[weight],use_datetime=use_datetime),axis=1))
                     else:
                         raise TypeError("end data must be same type as start data") 
                 else:
                     if weight is None:
-                        return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),None),use_datetime=use_datetime),axis=1))
+                        return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(datetime(x[start]),None),use_datetime=use_datetime),axis=1))
                     else:
-                        return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),None),weight=x[weight],use_datetime=use_datetime),axis=1))
+                        return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(datetime(x[start]),None),weight=x[weight],use_datetime=use_datetime),axis=1))
             else:# data[start].dtypes in valid_input_types:
                 st = Steps(False)
                 if end is not None:
@@ -431,10 +431,10 @@ class Steps(AbstractStep):
 
             if use_datetime or Steps.is_date_time(start[0]):
                 params['use_datetime'] = True
-                df_data.start = df_data.start.apply(pd.Timestamp)
+                df_data.start = df_data.start.apply(datetime)
                 
                 if end is not None:
-                    df_data.end = df_data.end.apply(pd.Timestamp)
+                    df_data.end = df_data.end.apply(datetime)
 
             #elif type(start[0]) in valid_input_types:
             #    params['use_datetime'] = False
@@ -798,9 +798,9 @@ class Steps(AbstractStep):
         elif type(x) is slice:
             if Steps.is_date_time(x.start):
                 if x.step is None:
-                    x = np.arange(x.start,x.stop,pd.Timedelta(minutes=1)).astype(pd.Timestamp)
+                    x = np.arange(x.start,x.stop,pd.Timedelta(minutes=1)).astype(datetime)
                 else:
-                    x = np.arange(x.start,x.stop,x.step).astype(pd.Timestamp)
+                    x = np.arange(x.start,x.stop,x.step).astype(datetime)
             else:
                 x = np.arange(x.start,x.stop,x.step)
             
@@ -883,7 +883,7 @@ class Steps(AbstractStep):
                 if ts_grain==None:
                     ts_grain = pd.Timedelta(minutes=10)
                 
-                tsx = np.arange(pd.Timestamp.fromtimestamp(min_ts)-ts_grain, pd.Timestamp.fromtimestamp(max_ts), ts_grain).astype(pd.Timestamp)
+                tsx = np.arange(datetime.fromtimestamp(min_ts)-ts_grain, datetime.fromtimestamp(max_ts), ts_grain).astype(datetime)
                 ax.step(tsx,self.step(tsx), where=where,color=color, **kargs)
             else:
                 if ts_grain==None:
@@ -904,7 +904,7 @@ class Steps(AbstractStep):
                 if ts_grain==None:
                     ts_grain = pd.Timedelta(minutes=10)
                 
-                tsx = np.arange(pd.Timestamp.fromtimestamp(min_ts)-ts_grain, pd.Timestamp.fromtimestamp(max_ts), ts_grain).astype(pd.Timestamp)
+                tsx = np.arange(datetime.fromtimestamp(min_ts)-ts_grain, datetime.fromtimestamp(max_ts), ts_grain).astype(datetime)
             else:
                 if ts_grain==None:
                     ts_grain = 0.00001
