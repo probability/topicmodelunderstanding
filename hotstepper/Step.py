@@ -274,7 +274,7 @@ class Step(AbstractStep):
         Step._modify_step(pow_step,'_weight',pow_step._weight**power_val)
 
         if pow_step._end is not None:
-            Step._modify_step(pow_step._end,'_weight',pow_step._end._weight**power_val)
+            Step._modify_step(pow_step._end,'_weight',-1*np.sign(pow_step.weight())*np.abs(pow_step._end.weight()**power_val))
 
         return pow_step
 
@@ -297,7 +297,7 @@ class Step(AbstractStep):
     def __mul__(self,other:S) -> Step:
         t = type(other)
         s = self
-        new_weight = self.weight()
+        new_weight = self._weight
 
         if t in [int,float]:
             new_weight *= other
@@ -313,7 +313,7 @@ class Step(AbstractStep):
             return new_step
 
         elif t == Step:
-            new_weight *= other.weight()
+            new_weight *= other._weight
 
             if self._end is None:
                 se = np.inf
