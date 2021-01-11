@@ -274,7 +274,7 @@ class Step(AbstractStep):
         Step._modify_step(pow_step,'_weight',pow_step._weight**power_val)
 
         if pow_step._end is not None:
-            Step._modify_step(pow_step._end,'_weight',np.sign(pow_step._end._weight)*pow_step._end._weight**power_val)
+            Step._modify_step(pow_step._end,'_weight',pow_step._end._weight**power_val)
 
         return pow_step
 
