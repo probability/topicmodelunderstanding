@@ -248,13 +248,21 @@ class Step(AbstractStep):
                 st = Step(start=self._start,end=self._end._start,weight=self._weight+other)
             return st
 
-    def reflect(self,reflect_point:float = 0) -> Step:
+    def reflect(self,axis:int = 0, reflect_point:float = 0) -> Step:
         reflected_step = copy.deepcopy(self)
 
-        Step._modify_step(reflected_step,'_weight',reflect_point-1*reflected_step._weight)
+        if axis == 0:
+            Step._modify_step(reflected_step,'_weight',reflect_point-1*reflected_step._weight)
 
-        if reflected_step._end is not None:
-            Step._modify_step(reflected_step._end,'_weight',reflect_point-1*reflected_step._end._weight)
+            if reflected_step._end is not None:
+                Step._modify_step(reflected_step._end,'_weight',reflect_point-1*reflected_step._end._weight)
+        else:
+            #If the step has an end, axis=1 reflect is the same as axis=0
+            if reflected_step._end is not None:
+                Step._modify_step(reflected_step,'_weight',reflect_point-1*reflected_step._weight)
+                Step._modify_step(reflected_step._end,'_weight',reflect_point-1*reflected_step._end._weight)
+            else:
+                Step._modify_step(reflected_step,'_direction',-1*reflected_step._direction)
 
         return reflected_step
 

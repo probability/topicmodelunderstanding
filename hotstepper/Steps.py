@@ -475,7 +475,7 @@ class Steps(AbstractStep):
         self._steps = np.append(self._steps,copy.deepcopy(steps))
         self._steps = np.append(self._steps,copy.deepcopy(end_steps))
 
-        #self._steps = np.sort(self._steps)
+        self._steps = np.sort(self._steps)
         self._cummulative = self.to_dict()
 
         return self
@@ -1010,7 +1010,10 @@ class Steps(AbstractStep):
                     if first:
                         st = s
                         first=False
-                        new_steps.append(Step(start=st.start(),weight=self._cummulative[st.start()]))
+                        if st._direction == 1:
+                            new_steps.append(Step(start=st.start(),weight=self._cummulative[st.start()]))
+                        else:
+                            new_steps.append(Step(end=st.start(),weight=self._cummulative[st.start()]))
                         continue
                     elif not (st is None) and (s.start_ts() > st.start_ts()):
                         mid_steps.append(Step(start=s.start(),weight=s.weight()))
