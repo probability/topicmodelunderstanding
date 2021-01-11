@@ -244,7 +244,7 @@ class Steps(AbstractStep):
 
     @staticmethod
     def _fill_missing(dt, fill) -> datetime:
-        if pd.isnull(dt):
+        if pd.isna(dt):
             return fill
         else:
             return dt
@@ -342,16 +342,16 @@ class Steps(AbstractStep):
                 if end is not None:
                     if data[end].dtypes == np.dtype('datetime64[ns]') or use_datetime:         
                         if weight is None:
-                            return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(datetime(x[start]),None),end = Steps._fill_missing(datetime(x[end]),None),use_datetime=use_datetime),axis=1))
+                            return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),None),end = Steps._fill_missing(pd.Timestamp(x[end]),None),use_datetime=use_datetime),axis=1))
                         else:
-                            return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(datetime(x[start]),None),end = Steps._fill_missing(datetime(x[end]),None),weight = x[weight],use_datetime=use_datetime),axis=1))
+                            return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),None),end = Steps._fill_missing(pd.Timestamp(x[end]),None),weight = x[weight],use_datetime=use_datetime),axis=1))
                     else:
                         raise TypeError("end data must be same type as start data") 
                 else:
                     if weight is None:
-                        return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(datetime(x[start]),None),use_datetime=use_datetime),axis=1))
+                        return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),None),use_datetime=use_datetime),axis=1))
                     else:
-                        return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(datetime(x[start]),None),weight=x[weight],use_datetime=use_datetime),axis=1))
+                        return st.add(data.apply(lambda x: Step(start = Steps._fill_missing(pd.Timestamp(x[start]),None),weight=x[weight],use_datetime=use_datetime),axis=1))
             else:# data[start].dtypes in valid_input_types:
                 st = Steps(False)
                 if end is not None:
@@ -678,10 +678,14 @@ class Steps(AbstractStep):
 
     def clip(self,lbound:T=None,ubound:T=None) -> Steps:
         
+        neg_inf_val = 0
+
         if self._using_dt:
             delta = pd.Timedelta(1,unit='ns')
+            neg_inf_val = (self(Steps.get_epoch_start(True)))[0]
         else:
             delta = 0.000000001
+            neg_inf_val = (self(Steps.get_epoch_start(False)))[0]
 
         data = self.to_dict(False)
 
@@ -692,6 +696,9 @@ class Steps(AbstractStep):
             
             clip_end = (self.step(ubound-delta))[0]
             new_steps = np.append(new_steps,Step(start=ubound,weight=-1*clip_end))
+
+            if neg_inf_val != 0:
+                new_steps = np.append(new_steps,Step(weight=neg_inf_val,use_datetime=self._using_dt))
 
         elif ubound is None:
             new_steps = np.array([Step(start=k,weight=v) for k,v in data.items() if (v != 0) and (k >= lbound)])
