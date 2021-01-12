@@ -166,6 +166,7 @@ class Steps(AbstractStep):
     
     def __init__(self,use_datetime=False,basis:Basis = Basis()) -> None:
         super().__init__()
+        self._truesteps = np.array([],dtype=Step)
         self._steps = np.array([],dtype=Step)
         self._basis = basis
         self._using_dt = use_datetime
@@ -473,9 +474,14 @@ class Steps(AbstractStep):
         start_steps = [s.detach_child() for s in steps]        
         end_steps = [copy.deepcopy(s.end()) for s in steps if s.end() is not None]
 
+        #keep a copy of the full steps so we can export properly
+        self._truesteps = np.append(self._truesteps,steps)
+
+        # the steps operations work best with single step object, no children
         self._steps = np.append(self._steps,start_steps)
         self._steps = np.append(self._steps,end_steps)
 
+        self._truesteps = np.sort(self._truesteps)
         self._steps = np.sort(self._steps)
         self._cummulative = self.to_dict()
 
@@ -767,10 +773,10 @@ class Steps(AbstractStep):
             data:defaultdict = defaultdict(lambda:0)
 
             for s in self._steps:
-                if only_ends and s.end() is not None:
-                    data[s.end()] += s.weight()                    
-                else:
-                    data[s.start()] += s.weight()
+                # if only_ends and s.end() is not None:
+                #     data[s.end()] += s.weight()                    
+                # else:
+                data[s.start()] += s.weight()
 
             return SortedDict(data)
     
@@ -1052,7 +1058,6 @@ class Steps(AbstractStep):
 
     def reflect(self,reflect_point:float = 0) -> Steps:
         new_instance = Steps(use_datetime=self._using_dt,basis=self._basis)
-        #ends = [s.end() for s in self._steps if s.end() is not None]
         
         reflected_steps = [s.reflect(reflect_point) for s in self._steps]
         new_instance.add(reflected_steps)
@@ -1061,7 +1066,6 @@ class Steps(AbstractStep):
     
     def __pow__(self,power_val:Union[int,float]) -> Steps:
         new_instance = Steps(use_datetime=self._using_dt,basis=self._basis)
-        #ends = [s.end() for s in self._steps if s.end() is not None]
         
         pow_steps = [s**power_val for s in self._steps]
         new_instance.add(pow_steps)
@@ -1106,7 +1110,6 @@ class Steps(AbstractStep):
         
     def __lshift__(self,other:V) -> Steps:
         new_instance = Steps(use_datetime=self._using_dt,basis=self._basis)
-        #ends = [s.end() for s in self._steps if s.end() is not None]
         
         lshift_steps = [s<<other for s in self._steps]
         new_instance.add(lshift_steps)
@@ -1114,7 +1117,6 @@ class Steps(AbstractStep):
         
     def __rshift__(self,other:V) -> Steps:
         new_instance = Steps(use_datetime=self._using_dt,basis=self._basis)
-        #ends = [s.end() for s in self._steps if s.end() is not None]
         
         rshift_steps = [s>>other for s in self._steps]
         new_instance.add(rshift_steps)
@@ -1135,14 +1137,14 @@ class Steps(AbstractStep):
             new_steps = np.array([],dtype=Step)
 
             #Need to remove the inserted end steps as the start step parent will handle the end in the Step multiplication
-            end_steps = [s.end() for s in self._steps if s.end() is not None]
+            #end_steps = [s.end() for s in self._steps if s.end() is not None]
             other_end_steps = [s.end() for s in other.steps() if s.end() is not None]
 
             for s in self._steps:
-                if s not in end_steps:
-                    for s_other in other.steps():
-                        if s_other not in other_end_steps:
-                            new_steps = np.append(new_steps,s*s_other)
+                #if s not in end_steps:
+                for s_other in other.steps():
+                    #if s_other not in other_end_steps:
+                    new_steps = np.append(new_steps,s*s_other)
 
             st = Steps().add(new_steps)
             st.reduce()
@@ -1156,8 +1158,8 @@ class Steps(AbstractStep):
             end_steps = [s.end() for s in self._steps if s.end() is not None]
 
             for s in self._steps:
-                if s not in end_steps:
-                    new_steps = np.append(new_steps,s*other)
+                #if s not in end_steps:
+                new_steps = np.append(new_steps,s*other)
 
             st = Steps().add(new_steps)
             st.reduce()

@@ -114,9 +114,9 @@ class Step(AbstractStep):
             x = np.arange(x.start,x.stop,x.step)
             
         if len(x) > 0 and Step.is_date_time(x[0]):
-            xf = cp.asarray([(t.timestamp()-self._start_ts)*self._direction for t in x])
+            xf = cp.asarray([(t.timestamp()-self.start_ts())*self._direction for t in x])
         else:
-            xf = cp.asarray([(t-self._start_ts)*self._direction for t in x])
+            xf = cp.asarray([(t-self.start_ts())*self._direction for t in x])
             
         result = self._weight*self._base(xf,self._basis.param)
         end_st = self._end
@@ -172,6 +172,9 @@ class Step(AbstractStep):
         return self._direction
 
     def start_ts(self) -> T:
+        #n = pd.Timestamp.now()
+        #delta = pd.Timestamp.fromtimestamp(n.timestamp()) - pd.Timestamp.utcfromtimestamp(n.timestamp())
+
         return self._start_ts
     
     def start(self) -> T:
@@ -183,118 +186,72 @@ class Step(AbstractStep):
     def weight(self) -> T:
         return self._direction*self._weight
 
+    
+
     def __irshift__(self,other:T) -> Step:
         return self.__rshift__(other)
-        # t = type(other)
-        # if t == Step:
-        #     new_end = None
-        #     if self._end is not None:
-        #         new_end = self._end._start + other._start
-        #     return Step(self._start + other._start,end=new_end,weight=self._weight,basis=self._basis)
-        # else:
-        #     new_end = None
-        #     if self._end is not None:
-        #         new_end = self._end._start + other
-        #     return Step(self._start + other,end=new_end,weight=self._weight,basis=self._basis)
     
     def __ilshift__(self,other:T) -> Step:
         return self.__lshift__(other)
-        # t = type(other)
-        # if t == Step:
-        #     new_end = None
-        #     if self._end is not None:
-        #         new_end = self._end._start - other._start
-        #     return Step(self._start - other._start,end=new_end,weight=self._weight,basis=self._basis)
-        # else:
-        #     new_end = None
-        #     if self._end is not None:
-        #         new_end = self._end._start - other
-        #     return Step(self._start - other,end=new_end,weight=self._weight,basis=self._basis)
         
     def __rshift__(self,other:T) -> Step:
-
+        rshift_step = self.copy()
+  
         new_end = None
         if type(other) == Step:
-            #new_end = None
-            if self._end is not None:
-                new_end = self._end._start + other._start
-                #Step._modify_step(lshift_step._end,'_start',lshift_step._end._start - other._start)
+            new_start, new_start_ts = Step.get_keys(rshift_step.start() + other, rshift_step._using_dt)
 
-            #Step._modify_step(lshift_step,'_start',lshift_step._start - other._start)
-            return Step(start = self._start + other._start,end=new_end,weight=self.weight(),basis=self._basis)
-            #return lshift_step
+            if rshift_step._end is not None:
+                new_end, new_end_ts = Step.get_keys(rshift_step.end().start() + other, rshift_step._using_dt)
+                Step._modify_step(rshift_step._end,'_start',new_end)
+                Step._modify_step(rshift_step._end,'_start_ts',new_end_ts)
+
+            Step._modify_step(rshift_step,'_start',new_start)
+            Step._modify_step(rshift_step,'_start_ts',new_start_ts)
         else:
-            # if lshift_step._end is not None:
-            #     Step._modify_step(lshift_step._end,'_start',lshift_step._end._start - other)
+            new_start, new_start_ts = Step.get_keys(rshift_step.start() + other, rshift_step._using_dt)
+            
 
-            # Step._modify_step(lshift_step,'_start',lshift_step._start - other)
-            # #return Step(self._start - other._start,end=new_end,weight=self._weight,basis=self._basis)
-            # return lshift_step
-            # new_end = None
-            if self._end is not None:
-                new_end = self._end._start + other
-            return Step(start = self._start + other,end=new_end,weight=self.weight(),basis=self._basis)
+            if rshift_step._end is not None:
+                new_end, new_end_ts = Step.get_keys(rshift_step.end().start() + other, rshift_step._using_dt)
+                Step._modify_step(rshift_step._end,'_start',new_end)
+                Step._modify_step(rshift_step._end,'_start_ts',new_end_ts)
 
+            Step._modify_step(rshift_step,'_start',new_start)
+            Step._modify_step(rshift_step,'_start_ts',new_start_ts)
 
-        # rshift_step = copy.deepcopy(self)
-  
-        # if type(other) == Step:
-        #     #new_end = None
-        #     if rshift_step._end is not None:
-        #         #new_end = self._end._start - other._start
-        #         Step._modify_step(rshift_step._end,'_start',rshift_step._end._start + other._start)
-
-        #     Step._modify_step(rshift_step,'_start',rshift_step._start + other._start)
-        #     #return Step(self._start - other._start,end=new_end,weight=self._weight,basis=self._basis)
-        #     return rshift_step
-        # else:
-        #     if rshift_step._end is not None:
-        #         Step._modify_step(rshift_step._end,'_start',rshift_step._end._start + other)
-
-        #     Step._modify_step(rshift_step,'_start',rshift_step._start + other)
-        #     #return Step(self._start - other._start,end=new_end,weight=self._weight,basis=self._basis)
-        #     return rshift_step
-            # new_end = None
-            # if self._end is not None:
-            #     new_end = self._end._start - other
-            # return Step(self._start - other,end=new_end,weight=self._weight,basis=self._basis)
-
-        # t = type(other)
-        # if t == Step:
-        #     new_end = None
-        #     if self._end is not None:
-        #         new_end = self._end._start + other._start
-        #     return Step(self._start + other._start,end=new_end,weight=self._weight,basis=self._basis)
-        # else:
-        #     new_end = None
-        #     if self._end is not None:
-        #         new_end = self._end._start + other
-        #     return Step(self._start + other,end=new_end,weight=self._weight,basis=self._basis)
+        return rshift_step
+    
     
     def __lshift__(self,other:T) -> Step:
-        #lshift_step = copy.deepcopy(self)
+        lshift_step = self.copy()
   
         new_end = None
+        new_end_ts = None
+
         if type(other) == Step:
-            #new_end = None
-            if self._end is not None:
-                new_end = self._end._start - other._start
-                #Step._modify_step(lshift_step._end,'_start',lshift_step._end._start - other._start)
+            new_start, new_start_ts = Step.get_keys(lshift_step.start() - other, lshift_step._using_dt)
+            
+            if lshift_step.end() is not None:
+                new_end, new_end_ts = Step.get_keys(lshift_step.end().start() - other, lshift_step._using_dt)
+                Step._modify_step(lshift_step._end,'_start',new_end)
+                Step._modify_step(lshift_step._end,'_start_ts',new_end_ts)
 
-            #Step._modify_step(lshift_step,'_start',lshift_step._start - other._start)
-            return Step(start = self._start - other._start,end=new_end,weight=self.weight(),basis=self._basis)
-            #return lshift_step
+            Step._modify_step(lshift_step,'_start',new_start)
+            Step._modify_step(lshift_step,'_start_ts',new_start_ts)
         else:
-            # if lshift_step._end is not None:
-            #     Step._modify_step(lshift_step._end,'_start',lshift_step._end._start - other)
+            new_start, new_start_ts = Step.get_keys(lshift_step._start - other, lshift_step._using_dt)
+            
+            if lshift_step.end() is not None:
+                new_end, new_end_ts = Step.get_keys(lshift_step.end().start() - other, lshift_step._using_dt)
+                Step._modify_step(lshift_step._end,'_start',new_end)
+                Step._modify_step(lshift_step._end,'_start_ts',new_end_ts)
 
-            # Step._modify_step(lshift_step,'_start',lshift_step._start - other)
-            # #return Step(self._start - other._start,end=new_end,weight=self._weight,basis=self._basis)
-            # return lshift_step
-            # new_end = None
-            if self._end is not None:
-                new_end = self._end._start - other
-            return Step(start = self._start - other,end=new_end,weight=self.weight(),basis=self._basis)
+            Step._modify_step(lshift_step,'_start',new_start)
+            Step._modify_step(lshift_step,'_start_ts',new_start_ts)
+
+        return lshift_step
+
     
     def __add__(self,other:T) -> S:
         t = type(other)
@@ -312,7 +269,7 @@ class Step(AbstractStep):
             return st
 
     def reflect(self,axis:int = 0, reflect_point:float = 0) -> Step:
-        reflected_step = copy.deepcopy(self)
+        reflected_step = self.copy()
 
         if axis == 0:
             Step._modify_step(reflected_step,'_weight',reflect_point-1*reflected_step._weight)
@@ -330,7 +287,7 @@ class Step(AbstractStep):
         return reflected_step
 
     def normalise(self,norm_value:float = 1) -> Step:
-        normed_step = copy.deepcopy(self)
+        normed_step = self.copy()
 
         Step._modify_step(normed_step,'_weight',norm_value*np.sign(normed_step._weight))
 
@@ -340,7 +297,7 @@ class Step(AbstractStep):
         return normed_step
         
     def __pow__(self,power_val:Union[int,float]) -> Step:
-        pow_step = copy.deepcopy(self)
+        pow_step = self.copy()
 
         Step._modify_step(pow_step,'_weight',pow_step._weight**power_val)
 
@@ -373,7 +330,7 @@ class Step(AbstractStep):
         if t in [int,float]:
             new_weight *= other
 
-            new_step = copy.deepcopy(self)
+            new_step = self.copy()
 
             Step._modify_step(new_step,'_weight',new_weight)
 

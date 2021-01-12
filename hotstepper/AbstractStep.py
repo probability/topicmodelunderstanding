@@ -161,11 +161,11 @@ class AbstractStep(metaclass=abc.ABCMeta):
     def _faststep(self,x:list(T)) -> list(T):
         
         if self._basis.lbound > -np.Inf or self._basis.ubound < np.Inf:
-            xr = np.where((x >= self._start_ts + self._basis.lbound) & ( x <= self._start_ts + self._basis.ubound),x,0)
+            xr = np.where((x >= self.start_ts() + self._basis.lbound) & ( x <= self.start_ts() + self._basis.ubound),x,0)
         else:
             xr = x
         
-        res = self._weight*self._base((xr-self._start_ts)*self._direction,self._basis.param)
+        res = self._weight*self._base((xr-self.start_ts())*self._direction,self._basis.param)
         del xr
 
         return res
