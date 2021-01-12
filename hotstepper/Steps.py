@@ -431,10 +431,10 @@ class Steps(AbstractStep):
 
             if use_datetime or Steps.is_date_time(start[0]):
                 params['use_datetime'] = True
-                df_data.start = df_data.start.apply(datetime)
+                df_data.start = df_data.start.apply(pd.Timestamp)
                 
                 if end is not None:
-                    df_data.end = df_data.end.apply(datetime)
+                    df_data.end = df_data.end.apply(pd.Timestamp)
 
             #elif type(start[0]) in valid_input_types:
             #    params['use_datetime'] = False
@@ -694,7 +694,7 @@ class Steps(AbstractStep):
         elif lbound is None:
             new_steps = np.array([Step(start=k,weight=v) for k,v in data.items() if (v != 0) and (k <= ubound)])
             
-            clip_end = (self.step(ubound-delta))[0]
+            clip_end = (self.step(ubound))[0]
             new_steps = np.append(new_steps,Step(start=ubound,weight=-1*clip_end))
 
             if neg_inf_val != 0:
@@ -703,14 +703,14 @@ class Steps(AbstractStep):
         elif ubound is None:
             new_steps = np.array([Step(start=k,weight=v) for k,v in data.items() if (v != 0) and (k >= lbound)])
 
-            clip_start = (self.step(lbound+delta))[0]
+            clip_start = (self.step(lbound))[0]
             new_steps = np.append(new_steps,Step(start=lbound,weight=clip_start))
 
         else:
             new_steps = np.array([Step(start=k,weight=v) for k,v in data.items() if (v != 0) and (k >= lbound) and (k <= ubound)])
 
-            clip_start = (self.step(lbound+delta))[0]
-            clip_end = (self.step(ubound-delta))[0]
+            clip_start = (self.step(lbound))[0]
+            clip_end = (self.step(ubound))[0]
 
             new_steps = np.append(new_steps,Step(start=lbound,weight=clip_start))
             new_steps = np.append(new_steps,Step(start=ubound,weight=-1*clip_end))
@@ -805,9 +805,9 @@ class Steps(AbstractStep):
         elif type(x) is slice:
             if Steps.is_date_time(x.start):
                 if x.step is None:
-                    x = np.arange(x.start,x.stop,pd.Timedelta(minutes=1)).astype(datetime)
+                    x = np.arange(x.start,x.stop,timedelta(minutes=1)).astype(pd.Timestamp)
                 else:
-                    x = np.arange(x.start,x.stop,x.step).astype(datetime)
+                    x = np.arange(x.start,x.stop,x.step).astype(pd.Timestamp)
             else:
                 x = np.arange(x.start,x.stop,x.step)
             
@@ -859,7 +859,7 @@ class Steps(AbstractStep):
             
             # small offset to ensure we plot the initial step transition
             if self._using_dt:
-                ts_grain = pd.Timedelta(seconds=1)
+                ts_grain = timedelta(seconds=1)
             else:
                 ts_grain = 0.00001
 
@@ -872,7 +872,7 @@ class Steps(AbstractStep):
             
             # small offset to ensure we plot the initial step transition
             if self._using_dt:
-                ts_grain = pd.Timedelta(seconds=1)
+                ts_grain = timedelta(seconds=1)
             else:
                 ts_grain = 0.00001
 
@@ -888,9 +888,9 @@ class Steps(AbstractStep):
             
             if self._using_dt:
                 if ts_grain==None:
-                    ts_grain = pd.Timedelta(minutes=10)
+                    ts_grain = timedelta(minutes=10)
                 
-                tsx = np.arange(datetime.fromtimestamp(min_ts)-ts_grain, datetime.fromtimestamp(max_ts), ts_grain).astype(datetime)
+                tsx = np.arange(pd.Timestamp.utcfromtimestamp(min_ts)-ts_grain, pd.Timestamp.utcfromtimestamp(max_ts), ts_grain).astype(pd.Timestamp)
                 ax.step(tsx,self.step(tsx), where=where,color=color, **kargs)
             else:
                 if ts_grain==None:
@@ -909,9 +909,9 @@ class Steps(AbstractStep):
             
             if self._using_dt:
                 if ts_grain==None:
-                    ts_grain = pd.Timedelta(minutes=10)
+                    ts_grain = timedelta(minutes=10)
                 
-                tsx = np.arange(datetime.fromtimestamp(min_ts)-ts_grain, datetime.fromtimestamp(max_ts), ts_grain).astype(datetime)
+                tsx = np.arange(pd.Timestamp.utcfromtimestamp(min_ts)-ts_grain, pd.Timestamp.utcfromtimestamp(max_ts), ts_grain).astype(pd.Timestamp)
             else:
                 if ts_grain==None:
                     ts_grain = 0.00001
