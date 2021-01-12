@@ -30,6 +30,11 @@ class AbstractStep(metaclass=abc.ABCMeta):
         return '#9c00ff'
 
     @staticmethod
+    def get_default_plot_size():
+        return (16,8)
+
+
+    @staticmethod
     def get_epoch_start(use_datetime:bool = True):
         if use_datetime:
             return pd.Timestamp.min
@@ -160,7 +165,7 @@ class AbstractStep(metaclass=abc.ABCMeta):
         else:
             xr = x
         
-        res = self._weight*self._base(xr-self._start_ts,self._basis.param)
+        res = self._weight*self._base((xr-self._start_ts)*self._direction,self._basis.param)
         del xr
 
         return res

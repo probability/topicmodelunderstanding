@@ -469,11 +469,12 @@ class Steps(AbstractStep):
         Steps : A new steps object consisting of this object and the additional steps.
 
         """
-        
-        end_steps = [s.end() for s in steps if s.end() is not None]
 
-        self._steps = np.append(self._steps,copy.deepcopy(steps))
-        self._steps = np.append(self._steps,copy.deepcopy(end_steps))
+        start_steps = [s.detach_child() for s in steps]        
+        end_steps = [copy.deepcopy(s.end()) for s in steps if s.end() is not None]
+
+        self._steps = np.append(self._steps,start_steps)
+        self._steps = np.append(self._steps,end_steps)
 
         self._steps = np.sort(self._steps)
         self._cummulative = self.to_dict()
@@ -846,8 +847,14 @@ class Steps(AbstractStep):
         ts_grain:Union[int,float,pd.Timedelta] = None,
         ax=None,where='post',**kargs):
 
+
+
         if ax is None:
-            _, ax = plt.subplots()
+            size = kargs.pop('size',None)
+            if size is None:
+                size=Steps.get_default_plot_size()
+
+            _, ax = plt.subplots(figsize=size)
         
         color = kargs.pop('color',None)
         if color is None:
@@ -1045,18 +1052,18 @@ class Steps(AbstractStep):
 
     def reflect(self,reflect_point:float = 0) -> Steps:
         new_instance = Steps(use_datetime=self._using_dt,basis=self._basis)
-        ends = [s.end() for s in self._steps if s.end() is not None]
+        #ends = [s.end() for s in self._steps if s.end() is not None]
         
-        reflected_steps = [s.reflect(reflect_point) for s in self._steps if s not in ends]
+        reflected_steps = [s.reflect(reflect_point) for s in self._steps]
         new_instance.add(reflected_steps)
         
         return new_instance
     
     def __pow__(self,power_val:Union[int,float]) -> Steps:
         new_instance = Steps(use_datetime=self._using_dt,basis=self._basis)
-        ends = [s.end() for s in self._steps if s.end() is not None]
+        #ends = [s.end() for s in self._steps if s.end() is not None]
         
-        pow_steps = [s**power_val for s in self._steps if s not in ends]
+        pow_steps = [s**power_val for s in self._steps]
         new_instance.add(pow_steps)
         
         return new_instance
@@ -1099,17 +1106,17 @@ class Steps(AbstractStep):
         
     def __lshift__(self,other:V) -> Steps:
         new_instance = Steps(use_datetime=self._using_dt,basis=self._basis)
-        ends = [s.end() for s in self._steps if s.end() is not None]
+        #ends = [s.end() for s in self._steps if s.end() is not None]
         
-        lshift_steps = [s<<other for s in self._steps if s not in ends]
+        lshift_steps = [s<<other for s in self._steps]
         new_instance.add(lshift_steps)
         return new_instance
         
     def __rshift__(self,other:V) -> Steps:
         new_instance = Steps(use_datetime=self._using_dt,basis=self._basis)
-        ends = [s.end() for s in self._steps if s.end() is not None]
+        #ends = [s.end() for s in self._steps if s.end() is not None]
         
-        rshift_steps = [s>>other for s in self._steps if s not in ends]
+        rshift_steps = [s>>other for s in self._steps]
         new_instance.add(rshift_steps)
         return new_instance
 

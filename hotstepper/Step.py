@@ -62,10 +62,12 @@ class Step(AbstractStep):
 
     def link_child(self,other:T,weight:T = None) -> Step:
         return Step(start=other,end=None,weight = -1*self._weight)
-        # if weight is None:
-        #     return Step(start=other,end=None,weight = -1*self._weight)
-        # else:
-        #     return Step(start=other,end=None,weight=weight)
+
+    def detach_child(self) -> Step:
+        parentless_step = copy.deepcopy(self)
+        parentless_step._end = None
+
+        return parentless_step
     
     def rebase(self,new_basis:Basis = Basis()) -> None:
         self._basis = new_basis
@@ -154,16 +156,16 @@ class Step(AbstractStep):
         return smoothed
 
     
-    def _faststep(self,x:list(T)) -> list(T):
+    # def _faststep(self,x:list(T)) -> list(T):
         
-        # if self._basis.lbound > -np.Inf or self._basis.ubound < np.Inf:
-        #     xr = np.where((x >= self._start_ts + self._basis.lbound) & ( x <= self._start_ts + self._basis.ubound),x,0)
-        # else:
-        #     xr = x
+    #     # if self._basis.lbound > -np.Inf or self._basis.ubound < np.Inf:
+    #     #     xr = np.where((x >= self._start_ts + self._basis.lbound) & ( x <= self._start_ts + self._basis.ubound),x,0)
+    #     # else:
+    #     #     xr = x
         
-        res = self._weight*self._base((x-self._start_ts)*self._direction,self._basis.param)
-        del x
-        return res
+    #     res = self._weight*self._base((x-self._start_ts)*self._direction,self._basis.param)
+    #     del x
+    #     return res
     
 
     def direction(self) -> T:
