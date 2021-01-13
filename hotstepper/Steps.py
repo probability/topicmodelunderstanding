@@ -786,30 +786,39 @@ class Steps(AbstractStep):
         else:
             data:defaultdict = defaultdict(lambda:0)
 
+            data[Steps.get_epoch_start(self._using_dt)] = self(Steps.get_epoch_start(self._using_dt))[0]
+
             for s in self._steps:
-                # if only_ends and s.end() is not None:
-                #     data[s.end()] += s.weight()                    
-                # else:
-                data[s.start()] += s.weight()
+                if only_ends and s.end() is not None:
+                    data[s.end()] += s.weight()                    
+                else:
+                    data[s.start()] += s.weight()
+                    if s.end() is not None:
+                        data[s.end().start()] += s.end().weight()
+
 
             return SortedDict(data)
     
-    def to_dataframe(self,mode:str = 'aggregate') -> pd.DataFrame:
+    def to_dataframe(self,mode:str = 'full') -> pd.DataFrame:
 
         if mode in ['aggregate','cummulative']:
             data = self.to_dict(mode == 'cummulative')
-            return pd.DataFrame.from_dict({'start': list(data.keys()), 'value': list(data.values())})
+            df = pd.DataFrame.from_dict({'start': list(data.keys()), 'value': list(data.values())})
+            df.replace(Steps.get_epoch_start(self._using_dt),pd.NaT,inplace=True)
+            df.replace(Steps.get_epoch_end(self._using_dt),pd.NaT,inplace=True)
+
+            return df
         elif mode == 'full':
             data:array = []
-            ends:array = []
 
-            for s in self._steps:
+            for s in self._truesteps:
                 if s.end() is not None:
-                    ends.append(s.end())
-                    data.append({'start': s.start(),'end':s.end().start(),'value':s.weight()})                  
+                    data.append({'start': s._start,'end':s.end()._start,'value':s._weight})                  
                 else:
-                    if s not in ends:
-                        data.append({'start': s.start(),'end':None,'value':s.weight()})
+                    if s._direction == 1:
+                        data.append({'start': s._start,'end':None,'value':s._weight})
+                    else:
+                        data.append({'start': None,'end':s._start,'value':s._weight})
 
             return pd.DataFrame.from_dict(data)
 
@@ -969,6 +978,27 @@ class Steps(AbstractStep):
             #end_start = self._end._start if self._end is not None else None
             tsx = Steps.get_plot_range(self._start,self._end,ts_grain,use_datetime=self._using_dt)
             ax.step(tsx,self.smooth_step(tsx,smooth_factor = smooth_factor), where=where,color=color, **kargs)
+
+        elif method == 'experiment':
+            raw_steps = self._cummulative
+            
+            #throw off the infinity end points if they are present
+            # try:
+            #     raw_steps.pop(Steps.get_epoch_start(self._using_dt))
+            #     raw_steps.pop(Steps.get_epoch_end(self._using_dt))
+            # except:
+            #     pass
+
+            # small offset to ensure we plot the initial step transition
+            if self._using_dt:
+                ts_grain = pd.Timedelta(minutes=10)
+            else:
+                ts_grain = 0.01
+
+            zero_key = (raw_steps.keys())[0] - ts_grain
+            raw_steps[zero_key] = self([zero_key])
+            ax.step(raw_steps.keys(),self.smooth_step(raw_steps.keys()), where=where,color=color, **kargs)
+
         else:
             raw_steps = self._cummulative
             
