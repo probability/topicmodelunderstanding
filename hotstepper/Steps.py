@@ -872,7 +872,7 @@ class Steps(AbstractStep):
             
             # small offset to ensure we plot the initial step transition
             if self._using_dt:
-                ts_grain = timedelta(seconds=1)
+                ts_grain = pd.Timedelta(seconds=1)
             else:
                 ts_grain = 0.00001
 
@@ -885,7 +885,7 @@ class Steps(AbstractStep):
             
             # small offset to ensure we plot the initial step transition
             if self._using_dt:
-                ts_grain = timedelta(seconds=1)
+                ts_grain = pd.Timedelta(seconds=1)
             else:
                 ts_grain = 0.00001
 
@@ -895,13 +895,13 @@ class Steps(AbstractStep):
             Steps._prettyplot(raw_steps,plot_start=zero_key,plot_start_value=0,ax=ax,color=color,**kargs)
 
         elif method == 'function':
-            step_ts = np.array([s.start_ts() for s in self._steps])
+            step_ts = np.array([s.start_ts() for s in self._steps if s.start() !=Steps.get_epoch_start(self._using_dt)])
             max_ts = np.amax(step_ts)
             min_ts = np.amin(step_ts)
             
             if self._using_dt:
                 if ts_grain==None:
-                    ts_grain = timedelta(minutes=10)
+                    ts_grain = pd.Timedelta(minutes=10)
                 
                 tsx = np.arange(pd.Timestamp.utcfromtimestamp(min_ts)-ts_grain, pd.Timestamp.utcfromtimestamp(max_ts), ts_grain).astype(pd.Timestamp)
                 ax.step(tsx,self.step(tsx), where=where,color=color, **kargs)
@@ -913,7 +913,7 @@ class Steps(AbstractStep):
                 ax.step(tsx,self.step(tsx), where=where,color=color, **kargs)
                 
         elif method == 'smooth':
-            step_ts = np.array([s.start_ts() for s in self._steps])
+            step_ts = np.array([s.start_ts() for s in self._steps if s.start() !=Steps.get_epoch_start(self._using_dt)])
             max_ts = np.amax(step_ts)
             min_ts = np.amin(step_ts)
 
@@ -922,7 +922,7 @@ class Steps(AbstractStep):
             
             if self._using_dt:
                 if ts_grain==None:
-                    ts_grain = timedelta(minutes=10)
+                    ts_grain = pd.Timedelta(minutes=10)
                 
                 tsx = np.arange(pd.Timestamp.utcfromtimestamp(min_ts)-ts_grain, pd.Timestamp.utcfromtimestamp(max_ts), ts_grain).astype(pd.Timestamp)
             else:

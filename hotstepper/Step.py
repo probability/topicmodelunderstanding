@@ -155,18 +155,6 @@ class Step(AbstractStep):
 
         return smoothed
 
-    
-    # def _faststep(self,x:list(T)) -> list(T):
-        
-    #     # if self._basis.lbound > -np.Inf or self._basis.ubound < np.Inf:
-    #     #     xr = np.where((x >= self._start_ts + self._basis.lbound) & ( x <= self._start_ts + self._basis.ubound),x,0)
-    #     # else:
-    #     #     xr = x
-        
-    #     res = self._weight*self._base((x-self._start_ts)*self._direction,self._basis.param)
-    #     del x
-    #     return res
-    
 
     def direction(self) -> T:
         return self._direction
@@ -199,7 +187,10 @@ class Step(AbstractStep):
   
         new_end = None
         if type(other) == Step:
-            new_start, new_start_ts = Step.get_keys(rshift_step.start() + other, rshift_step._using_dt)
+            if rshift_step.start() == Step.get_epoch_end():
+                new_start, new_start_ts = Step.get_keys(rshift_step.start(), rshift_step._using_dt)
+            else:
+                new_start, new_start_ts = Step.get_keys(rshift_step.start() + other, rshift_step._using_dt)
 
             if rshift_step._end is not None:
                 new_end, new_end_ts = Step.get_keys(rshift_step.end().start() + other, rshift_step._using_dt)
@@ -209,9 +200,11 @@ class Step(AbstractStep):
             Step._modify_step(rshift_step,'_start',new_start)
             Step._modify_step(rshift_step,'_start_ts',new_start_ts)
         else:
-            new_start, new_start_ts = Step.get_keys(rshift_step.start() + other, rshift_step._using_dt)
+            if rshift_step.start() == Step.get_epoch_end():
+                new_start, new_start_ts = Step.get_keys(rshift_step.start(), rshift_step._using_dt)
+            else:
+                new_start, new_start_ts = Step.get_keys(rshift_step.start() + other, rshift_step._using_dt)
             
-
             if rshift_step._end is not None:
                 new_end, new_end_ts = Step.get_keys(rshift_step.end().start() + other, rshift_step._using_dt)
                 Step._modify_step(rshift_step._end,'_start',new_end)
@@ -222,7 +215,7 @@ class Step(AbstractStep):
 
         return rshift_step
     
-    
+
     def __lshift__(self,other:T) -> Step:
         lshift_step = self.copy()
   
@@ -230,7 +223,10 @@ class Step(AbstractStep):
         new_end_ts = None
 
         if type(other) == Step:
-            new_start, new_start_ts = Step.get_keys(lshift_step.start() - other, lshift_step._using_dt)
+            if lshift_step.start() == Step.get_epoch_start():
+                new_start, new_start_ts = Step.get_keys(lshift_step.start(), lshift_step._using_dt)
+            else:
+                new_start, new_start_ts = Step.get_keys(lshift_step.start() - other, lshift_step._using_dt)
             
             if lshift_step.end() is not None:
                 new_end, new_end_ts = Step.get_keys(lshift_step.end().start() - other, lshift_step._using_dt)
@@ -240,7 +236,10 @@ class Step(AbstractStep):
             Step._modify_step(lshift_step,'_start',new_start)
             Step._modify_step(lshift_step,'_start_ts',new_start_ts)
         else:
-            new_start, new_start_ts = Step.get_keys(lshift_step._start - other, lshift_step._using_dt)
+            if lshift_step.start() == Step.get_epoch_start():
+                new_start, new_start_ts = Step.get_keys(lshift_step.start(), lshift_step._using_dt)
+            else:
+                new_start, new_start_ts = Step.get_keys(lshift_step.start() - other, lshift_step._using_dt)
             
             if lshift_step.end() is not None:
                 new_end, new_end_ts = Step.get_keys(lshift_step.end().start() - other, lshift_step._using_dt)
