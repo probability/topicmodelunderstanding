@@ -10,6 +10,7 @@ except ImportError:
 
 import pandas as pd
 import abc
+import math
 from sortedcontainers import SortedDict
 from datetime import datetime
 from typing import Optional, Union
@@ -119,6 +120,54 @@ class AbstractStep(metaclass=abc.ABCMeta):
 
             step0_k = k
             step0_v = v
+
+    @staticmethod
+    def get_plot_range(start:T,end:T, delta:T = None, use_datetime:bool = False):
+
+        shift = None
+
+        if AbstractStep.is_date_time(start) or use_datetime:
+            start = pd.to_datetime(start)
+            if end is not None:
+                end = pd.to_datetime(end)
+                shift = end - start
+                span_seconds = shift.value
+                shift = pd.Timedelta(nanoseconds=int(0.1*span_seconds))
+
+                if delta is None:
+                    if int(0.01*span_seconds) > 0:
+                        delta = pd.Timedelta(nanoseconds=int(0.01*span_seconds))
+                    else:
+                        delta = pd.Timedelta(seconds=10)
+                
+                return np.arange(start-shift, end + shift, delta).astype(pd.Timestamp)
+            else:
+                if start.hour > 0:
+                    shift = pd.Timedelta(hours=4)
+                    delta = pd.Timedelta(hours=1)
+                elif start.minute > 0:
+                    shift = pd.Timedelta(minutes=10)
+                    delta = pd.Timedelta(minutes=2)
+                else:
+                    shift = pd.Timedelta(hours=36)
+                    delta = pd.Timedelta(hours=2)
+
+                return np.arange(start-shift, start + shift, delta).astype(pd.Timestamp)
+        else:
+            if end is not None:
+                shift = 0.1*(end - start)
+
+                if delta is None:
+                    delta = 0.1*shift
+
+                return np.arange(start-shift, end + shift, delta)
+            else:
+                shift = 0.1*start
+
+                if delta is None:
+                    delta = 0.1*shift
+
+                return np.arange(start-shift, start + shift, delta)
 
     @staticmethod
     def is_date_time(value:T) -> bool:

@@ -485,6 +485,8 @@ class Steps(AbstractStep):
         self._steps = np.sort(self._steps)
         self._cummulative = self.to_dict()
 
+        self._using_dt = Steps.is_date_time(self._cummulative.keys()[0])
+
         return self
 
     def __add__(self,other:V) -> Steps:
@@ -894,12 +896,13 @@ class Steps(AbstractStep):
 
             # small offset to ensure we plot the initial step transition
             if self._using_dt:
-                ts_grain = pd.Timedelta(seconds=1)
+                ts_grain = pd.Timedelta(minutes=10)
             else:
                 ts_grain = 0.00001
 
+            #print((raw_steps.keys())[0],ts_grain)
             zero_key = (raw_steps.keys())[0] - ts_grain
-            raw_steps[zero_key] = self([zero_key])
+            raw_steps[zero_key] = self(zero_key)
             ax.step(raw_steps.keys(),raw_steps.values(), where=where,color=color, **kargs)
 
         elif method == 'pretty':
@@ -924,24 +927,25 @@ class Steps(AbstractStep):
             Steps._prettyplot(raw_steps,plot_start=zero_key,plot_start_value=0,ax=ax,color=color,**kargs)
 
         elif method == 'function':
-            step_ts = np.array([s.start_ts() for s in self._steps if s.start() !=Steps.get_epoch_start(self._using_dt)])
-            max_ts = np.amax(step_ts)
-            min_ts = np.amin(step_ts)
+            # step_ts = np.array([s.start_ts() for s in self._steps if s.start() !=Steps.get_epoch_start(self._using_dt)])
+            # max_ts = np.amax(step_ts)
+            # min_ts = np.amin(step_ts)
             
-            if self._using_dt:
-                if ts_grain==None:
-                    ts_grain = pd.Timedelta(minutes=10)
+            # if self._using_dt:
+            #     if ts_grain==None:
+            #         ts_grain = pd.Timedelta(minutes=10)
                 
-                #tsx = np.arange(pd.Timestamp.utcfromtimestamp(min_ts)-ts_grain, pd.Timestamp.utcfromtimestamp(max_ts), ts_grain).astype(pd.Timestamp)
-                tsx = np.arange(self._start-ts_grain, self._end, ts_grain).astype(pd.Timestamp)
+            #     tsx = np.arange(self._start-ts_grain, self._end, ts_grain).astype(pd.Timestamp)
+            #     ax.step(tsx,self.step(tsx), where=where,color=color, **kargs)
+            # else:
+            #     if ts_grain==None:
+            #         ts_grain = 0.01
+                
+                #tsx = np.arange(self._start-ts_grain, self._end, ts_grain)
+                #end_start = self._end._start if self._end is not None else None
+                tsx = Steps.get_plot_range(self._start,self._end,ts_grain,use_datetime=self._using_dt)
+
                 ax.step(tsx,self.step(tsx), where=where,color=color, **kargs)
-            else:
-                if ts_grain==None:
-                    ts_grain = 0.01
-                
-                #tsx = np.arange(min_ts-ts_grain, max_ts, ts_grain)
-                tsx = np.arange(self._start-ts_grain, self._end, ts_grain)
-                ax.step(tsx-dt_delta,self.step(tsx), where=where,color=color, **kargs)
                 
         elif method == 'smooth':
             step_ts = np.array([s.start_ts() for s in self._steps if s.start() !=Steps.get_epoch_start(self._using_dt)])
@@ -951,20 +955,20 @@ class Steps(AbstractStep):
             if smooth_factor is None:
                 smooth_factor = (max_ts - min_ts)/250
             
-            if self._using_dt:
-                if ts_grain==None:
-                    ts_grain = pd.Timedelta(minutes=10)
+            # if self._using_dt:
+            #     if ts_grain==None:
+            #         ts_grain = pd.Timedelta(minutes=10)
                 
-                #tsx = np.arange(pd.Timestamp.utcfromtimestamp(min_ts)-ts_grain, pd.Timestamp.utcfromtimestamp(max_ts), ts_grain).astype(pd.Timestamp)
-                tsx = np.arange(self._start-ts_grain, self._end, ts_grain).astype(pd.Timestamp)
-            else:
-                if ts_grain==None:
-                    ts_grain = 0.00001
+            #     tsx = np.arange(self._start-ts_grain, self._end, ts_grain).astype(pd.Timestamp)
+            # else:
+            #     if ts_grain==None:
+            #         ts_grain = 0.00001
                 
-                #tsx = np.arange(min_ts-ts_grain, max_ts, ts_grain)
-                tsx = np.arange(self._start-ts_grain, self._end, ts_grain)
+            #     tsx = np.arange(self._start-ts_grain, self._end, ts_grain)
             
-            ax.step(tsx-dt_delta,self.smooth_step(tsx,smooth_factor = smooth_factor), where=where,color=color, **kargs)
+            #end_start = self._end._start if self._end is not None else None
+            tsx = Steps.get_plot_range(self._start,self._end,ts_grain,use_datetime=self._using_dt)
+            ax.step(tsx,self.smooth_step(tsx,smooth_factor = smooth_factor), where=where,color=color, **kargs)
         else:
             raw_steps = self._cummulative
             
@@ -977,7 +981,7 @@ class Steps(AbstractStep):
 
             # small offset to ensure we plot the initial step transition
             if self._using_dt:
-                ts_grain = pd.Timedelta(seconds=1)
+                ts_grain = pd.Timedelta(minutes=10)
             else:
                 ts_grain = 0.01
 
