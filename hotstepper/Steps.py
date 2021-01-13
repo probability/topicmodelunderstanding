@@ -756,12 +756,23 @@ class Steps(AbstractStep):
     
     def to_dict(self,use_cummulative:bool = True, only_ends:bool = False) -> SortedDict:
         
-
         if use_cummulative:
             data:SortedDict = SortedDict()
 
             #all_keys = [s.start() for s in self._steps if s.start() != Steps.get_epoch_start(self._using_dt)]
             all_keys = [s.start() for s in self._steps]
+
+            start_key = np.amin(all_keys)
+
+            if start_key == Steps.get_epoch_start(self._using_dt):
+                start_key = all_keys[1]
+
+            end_key = np.amax(all_keys)
+            if end_key == Steps.get_epoch_end(self._using_dt):
+                end_key = all_keys[-2]
+
+            self._start = start_key
+            self._end = end_key
 
             #much faster to get all values in one go!
             all_values = self.step(all_keys)
@@ -854,7 +865,11 @@ class Steps(AbstractStep):
         ts_grain:Union[int,float,pd.Timedelta] = None,
         ax=None,where='post',**kargs):
 
-
+        #hack to correct dt plot slipping
+        if self._using_dt:
+            dt_delta = pd.Timedelta(hours=11)
+        else:
+            dt_delta = 0
 
         if ax is None:
             size = kargs.pop('size',None)
@@ -917,14 +932,16 @@ class Steps(AbstractStep):
                 if ts_grain==None:
                     ts_grain = pd.Timedelta(minutes=10)
                 
-                tsx = np.arange(pd.Timestamp.utcfromtimestamp(min_ts)-ts_grain, pd.Timestamp.utcfromtimestamp(max_ts), ts_grain).astype(pd.Timestamp)
+                #tsx = np.arange(pd.Timestamp.utcfromtimestamp(min_ts)-ts_grain, pd.Timestamp.utcfromtimestamp(max_ts), ts_grain).astype(pd.Timestamp)
+                tsx = np.arange(self._start-ts_grain, self._end, ts_grain).astype(pd.Timestamp)
                 ax.step(tsx,self.step(tsx), where=where,color=color, **kargs)
             else:
                 if ts_grain==None:
                     ts_grain = 0.01
                 
-                tsx = np.arange(min_ts-ts_grain, max_ts, ts_grain)
-                ax.step(tsx,self.step(tsx), where=where,color=color, **kargs)
+                #tsx = np.arange(min_ts-ts_grain, max_ts, ts_grain)
+                tsx = np.arange(self._start-ts_grain, self._end, ts_grain)
+                ax.step(tsx-dt_delta,self.step(tsx), where=where,color=color, **kargs)
                 
         elif method == 'smooth':
             step_ts = np.array([s.start_ts() for s in self._steps if s.start() !=Steps.get_epoch_start(self._using_dt)])
@@ -938,14 +955,16 @@ class Steps(AbstractStep):
                 if ts_grain==None:
                     ts_grain = pd.Timedelta(minutes=10)
                 
-                tsx = np.arange(pd.Timestamp.utcfromtimestamp(min_ts)-ts_grain, pd.Timestamp.utcfromtimestamp(max_ts), ts_grain).astype(pd.Timestamp)
+                #tsx = np.arange(pd.Timestamp.utcfromtimestamp(min_ts)-ts_grain, pd.Timestamp.utcfromtimestamp(max_ts), ts_grain).astype(pd.Timestamp)
+                tsx = np.arange(self._start-ts_grain, self._end, ts_grain).astype(pd.Timestamp)
             else:
                 if ts_grain==None:
                     ts_grain = 0.00001
                 
-                tsx = np.arange(min_ts-ts_grain, max_ts, ts_grain)
+                #tsx = np.arange(min_ts-ts_grain, max_ts, ts_grain)
+                tsx = np.arange(self._start-ts_grain, self._end, ts_grain)
             
-            ax.step(tsx,self.smooth_step(tsx,smooth_factor = smooth_factor), where=where,color=color, **kargs)
+            ax.step(tsx-dt_delta,self.smooth_step(tsx,smooth_factor = smooth_factor), where=where,color=color, **kargs)
         else:
             raw_steps = self._cummulative
             
@@ -1052,9 +1071,9 @@ class Steps(AbstractStep):
                         st = s
                         first=False
                         if st._direction == 1:
-                            new_steps.append(Step(start=st.start(),weight=self(st.start())[0]))
+                            new_steps.append(Step(start=st.start(),weight=self._cummulative[st.start()]))
                         else:
-                            new_steps.append(Step(end=st._start,weight=self(st.start())[0]))
+                            new_steps.append(Step(start=st._start,weight=self._cummulative[st.start()]))
                         continue
                     elif not (st is None) and (s.start_ts() > st.start_ts()):
                         mid_steps.append(Step(start=s.start(),weight=s.weight()))
@@ -1067,9 +1086,9 @@ class Steps(AbstractStep):
                         # since the start of the step when we want to see the steps along the way, to ensure we return
                         # to zero when condition is not met.
                         if s._direction == 1:
-                            new_steps.append(Step(start=s.start(),weight=-1*(self(st.start())[0] + adj)))
+                            new_steps.append(Step(start=s.start(),weight=-1*(self._cummulative[st.start()] + adj)))
                         else:
-                            new_steps.append(Step(end=s._start,weight=-1*(self(st.start())[0] + adj)))
+                            new_steps.append(Step(start=s._start,weight=-1*(self._cummulative[st.start()] + adj)))
 
                         adj = 0
                         st = None

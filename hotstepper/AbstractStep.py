@@ -37,7 +37,7 @@ class AbstractStep(metaclass=abc.ABCMeta):
     @staticmethod
     def get_epoch_start(use_datetime:bool = True):
         if use_datetime:
-            return pd.Timestamp.min
+            return pd.Timestamp(1999,12,31,23,59)
         else:
             return -np.inf
 
