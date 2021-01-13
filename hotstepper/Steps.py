@@ -760,7 +760,8 @@ class Steps(AbstractStep):
         if use_cummulative:
             data:SortedDict = SortedDict()
 
-            all_keys = [s.start() for s in self._steps if s.start() != Steps.get_epoch_start(self._using_dt)]
+            #all_keys = [s.start() for s in self._steps if s.start() != Steps.get_epoch_start(self._using_dt)]
+            all_keys = [s.start() for s in self._steps]
 
             #much faster to get all values in one go!
             all_values = self.step(all_keys)
@@ -807,7 +808,7 @@ class Steps(AbstractStep):
         return self.step(x)
     
     def step(self, x:T) -> list(T):
-        if type(x) in Step.input_types():
+        if not hasattr(x,'__iter__'):
             x = [x]
         elif type(x) is slice:
             if Steps.is_date_time(x.start):
@@ -867,9 +868,15 @@ class Steps(AbstractStep):
             color=Steps.get_default_plot_color()
 
         if method == None:
-            #raw_steps = self.to_dict()
             raw_steps = self._cummulative
-            
+
+            #throw off the infinity end points if they are present
+            try:
+                raw_steps.pop(Steps.get_epoch_start(self._using_dt))
+                raw_steps.pop(Steps.get_epoch_end(self._using_dt))
+            except:
+                pass
+
             # small offset to ensure we plot the initial step transition
             if self._using_dt:
                 ts_grain = pd.Timedelta(seconds=1)
@@ -881,11 +888,18 @@ class Steps(AbstractStep):
             ax.step(raw_steps.keys(),raw_steps.values(), where=where,color=color, **kargs)
 
         elif method == 'pretty':
-            raw_steps = self.to_dict()
-            
+            raw_steps = self._cummulative
+
+             #throw off the infinity end points if they are present
+            try:
+                raw_steps.pop(Steps.get_epoch_start(self._using_dt))
+                raw_steps.pop(Steps.get_epoch_end(self._using_dt))
+            except:
+                pass
+
             # small offset to ensure we plot the initial step transition
             if self._using_dt:
-                ts_grain = pd.Timedelta(seconds=1)
+                ts_grain = pd.Timedelta(minutes=10)
             else:
                 ts_grain = 0.00001
 
@@ -933,14 +947,21 @@ class Steps(AbstractStep):
             
             ax.step(tsx,self.smooth_step(tsx,smooth_factor = smooth_factor), where=where,color=color, **kargs)
         else:
-            raw_steps = self.to_dict()
+            raw_steps = self._cummulative
             
+            #throw off the infinity end points if they are present
+            try:
+                raw_steps.pop(Steps.get_epoch_start(self._using_dt))
+                raw_steps.pop(Steps.get_epoch_end(self._using_dt))
+            except:
+                pass
+
             # small offset to ensure we plot the initial step transition
             if self._using_dt:
                 ts_grain = pd.Timedelta(seconds=1)
             else:
                 ts_grain = 0.01
-                
+
             zero_key = (raw_steps.keys())[0] - ts_grain
             raw_steps[zero_key] = self([zero_key])
             ax.step(raw_steps.keys(),raw_steps.values(), where=where,color=color, **kargs)
@@ -1031,9 +1052,9 @@ class Steps(AbstractStep):
                         st = s
                         first=False
                         if st._direction == 1:
-                            new_steps.append(Step(start=st.start(),weight=self._cummulative[st.start()]))
+                            new_steps.append(Step(start=st.start(),weight=self(st.start())[0]))
                         else:
-                            new_steps.append(Step(end=st.start(),weight=self._cummulative[st.start()]))
+                            new_steps.append(Step(end=st._start,weight=self(st.start())[0]))
                         continue
                     elif not (st is None) and (s.start_ts() > st.start_ts()):
                         mid_steps.append(Step(start=s.start(),weight=s.weight()))
@@ -1045,7 +1066,11 @@ class Steps(AbstractStep):
                         # the end of the big new step where the condition was met, we use adj to correct for changes
                         # since the start of the step when we want to see the steps along the way, to ensure we return
                         # to zero when condition is not met.
-                        new_steps.append(Step(start=s.start(),weight=-1*(self._cummulative[st.start()] + adj)))
+                        if s._direction == 1:
+                            new_steps.append(Step(start=s.start(),weight=-1*(self(st.start())[0] + adj)))
+                        else:
+                            new_steps.append(Step(end=s._start,weight=-1*(self(st.start())[0] + adj)))
+
                         adj = 0
                         st = None
             
@@ -1192,7 +1217,7 @@ class Steps(AbstractStep):
     
     def smooth_step(self,x:list(T),smooth_factor:Union[int,float] = None,smooth_basis:Basis = None) -> list(T):
 
-        step_ts = np.array([s.start_ts() for s in self._steps])
+        step_ts = np.array([s.start_ts() for s in self._steps if s.start() != Steps.get_epoch_start(self._using_dt)])
         max_ts = np.amax(step_ts)
         min_ts = np.amin(step_ts)
 
@@ -1210,7 +1235,6 @@ class Steps(AbstractStep):
 
         return smoothed
                                                             
-        
     def integrate(self):
         return Analysis.integrate(self)
     

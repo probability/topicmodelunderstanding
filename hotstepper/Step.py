@@ -108,7 +108,7 @@ class Step(AbstractStep):
     
     def step(self,x:T) -> T:
 
-        if type(x) in Step.input_types():
+        if not hasattr(x,'__iter__'):
             x = [x]
         elif type(x) is slice:
             x = np.arange(x.start,x.stop,x.step)
@@ -425,7 +425,8 @@ class Step(AbstractStep):
             min_value = min_ts-ts_grain
             max_value = max_ts
 
-            tsx = np.arange(min_value, max_value, ts_grain)       
+            tsx = np.arange(min_value, max_value, ts_grain)      
+
         # if color is None:
         #     color=Step.get_default_plot_color()
 
