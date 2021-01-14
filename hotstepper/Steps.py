@@ -717,7 +717,7 @@ class Steps(AbstractStep):
         elif lbound is None:
             new_steps = np.array([Step(start=k,weight=v) for k,v in data.items() if (v != 0) and (k <= ubound)])
             
-            clip_end = (self.step(ubound))[0]
+            #clip_end = (self.step(ubound))[0]
             #new_steps = np.append(new_steps,Step(start=ubound,weight=-1*clip_end))
 
             # if neg_inf_val != 0:
@@ -730,13 +730,20 @@ class Steps(AbstractStep):
             new_steps = np.append(new_steps,Step(start=lbound,weight=clip_start))
 
         else:
-            new_steps = np.array([Step(start=k,weight=v) for k,v in data.items() if (v != 0) and (k >= lbound) and (k <= ubound)])
+            if lbound < self._start:
+                new_steps = np.array([Step(start=k,weight=v) for k,v in data.items() if (v != 0) and (k <= ubound)])
+            elif ubound > self._end:
+                new_steps = np.array([Step(start=k,weight=v) for k,v in data.items() if (v != 0) and (k >= lbound)])
+                clip_start = (self.step(lbound))[0]
+                new_steps = np.append(new_steps,Step(start=lbound,weight=clip_start))
+            else:
+                new_steps = np.array([Step(start=k,weight=v) for k,v in data.items() if (v != 0) and (k >= lbound) and (k <= ubound)])
 
-            clip_start = (self.step(lbound))[0]
-            clip_end = (self.step(ubound))[0]
+                clip_start = (self.step(lbound))[0]
+                clip_end = (self.step(ubound))[0]
 
-            new_steps = np.append(new_steps,Step(start=lbound,weight=clip_start))
-            #new_steps = np.append(new_steps,Step(start=ubound,weight=-1*clip_end))
+                new_steps = np.append(new_steps,Step(start=lbound,weight=clip_start))
+                new_steps = np.append(new_steps,Step(start=ubound,weight=-1*clip_end))
         
         new_clipped = Steps(self.using_datetime())
 
@@ -867,12 +874,8 @@ class Steps(AbstractStep):
     def smooth_plot(self,smooth_factor:Union[int,float] = None, ts_grain:Union[int,float,pd.Timedelta] = None,ax=None,where='post',**kargs):
         return self.plot(method='smooth',smooth_factor=smooth_factor, ts_grain=ts_grain,ax=ax,where=where,**kargs)
 
-    def plot(self,plot_range:list(Union[int,float,pd.Timedelta],
-        Union[int,float,pd.Timedelta],Union[int,float,pd.Timedelta])=None,
-        method:str=None, plot_start=None,plot_end=None,
-        smooth_factor:Union[int,float] = None, 
-        ts_grain:Union[int,float,pd.Timedelta] = None,
-        ax=None,where='post',**kargs):
+    def plot(self,plot_range=None,method=None, plot_start=None,plot_end=None,
+        smooth_factor = None,ts_grain = None,ax=None,where='post',**kargs):
 
         #hack to correct dt plot slipping
         if self._using_dt:
@@ -908,8 +911,36 @@ class Steps(AbstractStep):
                 ts_grain = 0.00001
 
             #print((raw_steps.keys())[0],ts_grain)
-            zero_key = (raw_steps.keys())[0] - ts_grain
-            raw_steps[zero_key] = self(zero_key)
+
+            # if plot_range is not None and type(plot_range) in [list,array]:
+            #     if plot_range[0] != None:
+            #         start_key = (raw_steps.keys())[0] - plot_range[0]
+            #         raw_steps[start_key] = self(start_key)
+            #     else:
+            #         zero_key = (raw_steps.keys())[0] - ts_grain
+            #         raw_steps[zero_key] = self(zero_key)
+                
+            #     if plot_range[1] != None:
+            #         end_key = (raw_steps.keys())[-1] + plot_range[1]
+            #         raw_steps[end_key] = self(end_key)
+            #     else:
+            #         end_key = (raw_steps.keys())[-1] + ts_grain
+            #         raw_steps[end_key] = self(end_key)
+            # else:
+            #     zero_key = (raw_steps.keys())[0] - ts_grain
+            #     raw_steps[zero_key] = self(zero_key)
+                
+            #     end_key = (raw_steps.keys())[-1] + ts_grain
+            #     raw_steps[end_key] = self(end_key)
+
+            #print((raw_steps.keys()))
+            if len(raw_steps.keys()) == 0:
+                ax.axhline(self(0)[0],color=color, **kargs)
+            else:
+                zero_key = (raw_steps.keys())[0] - ts_grain
+                raw_steps[zero_key] = self(zero_key)            
+                ax.step(raw_steps.keys(),raw_steps.values(), where=where,color=color, **kargs)
+                           
             ax.step(raw_steps.keys(),raw_steps.values(), where=where,color=color, **kargs)
 
         elif method == 'pretty':
@@ -927,6 +958,27 @@ class Steps(AbstractStep):
                 ts_grain = pd.Timedelta(minutes=10)
             else:
                 ts_grain = 0.00001
+
+            # if plot_range is not None and type(plot_range) in [list,array]:
+            #     if plot_range[0] != None:
+            #         start_key = (raw_steps.keys())[0] - plot_range[0]
+            #         raw_steps[start_key] = self(start_key)
+            #     else:
+            #         zero_key = (raw_steps.keys())[0] - ts_grain
+            #         raw_steps[zero_key] = self(zero_key)
+                
+            #     if plot_range[1] != None:
+            #         end_key = (raw_steps.keys())[-1] + plot_range[1]
+            #         raw_steps[end_key] = self(end_key)
+            #     else:
+            #         end_key = (raw_steps.keys())[-1] + ts_grain
+            #         raw_steps[end_key] = self(end_key)
+            # else:
+            #     zero_key = (raw_steps.keys())[0] - ts_grain
+            #     raw_steps[zero_key] = self(zero_key)
+                
+            #     end_key = (raw_steps.keys())[-1] + ts_grain
+            #     raw_steps[end_key] = self(end_key)
 
             zero_key = (raw_steps.keys())[0] - ts_grain
             raw_steps[zero_key] = self([zero_key])
@@ -976,6 +1028,27 @@ class Steps(AbstractStep):
                 ts_grain = pd.Timedelta(minutes=10)
             else:
                 ts_grain = 0.01
+
+            # if plot_range is not None and type(plot_range) in [list,array]:
+            #     if plot_range[0] != None:
+            #         start_key = (raw_steps.keys())[0] - plot_range[0]
+            #         raw_steps[start_key] = self(start_key)
+            #     else:
+            #         zero_key = (raw_steps.keys())[0] - ts_grain
+            #         raw_steps[zero_key] = self(zero_key)
+                
+            #     if plot_range[1] != None:
+            #         end_key = (raw_steps.keys())[-1] + plot_range[1]
+            #         raw_steps[end_key] = self(end_key)
+            #     else:
+            #         end_key = (raw_steps.keys())[-1] + ts_grain
+            #         raw_steps[end_key] = self(end_key)
+            # else:
+            #     zero_key = (raw_steps.keys())[0] - ts_grain
+            #     raw_steps[zero_key] = self(zero_key)
+                
+            #     end_key = (raw_steps.keys())[-1] + ts_grain
+            #     raw_steps[end_key] = self(end_key)
 
             zero_key = (raw_steps.keys())[0] - ts_grain
             raw_steps[zero_key] = self([zero_key])
