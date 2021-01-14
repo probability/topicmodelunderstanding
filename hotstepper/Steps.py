@@ -251,7 +251,7 @@ class Steps(AbstractStep):
             return dt
 
     @staticmethod
-    def read_dict(data:Union[dict,SortedDict,OrderedDict,DefaultDict],use_datetime:bool = False, convert_delta:bool = False) -> Steps:
+    def read_dict(data:Union[dict,SortedDict,OrderedDict,DefaultDict],use_datetime:bool = False, convert_delta:bool = True) -> Steps:
         """
         Read a dictionary with values that represent either the cummulative value of the data steps or the direct step
         values seperately, indexed by the dictionary key values.
@@ -775,6 +775,8 @@ class Steps(AbstractStep):
             data:SortedDict = SortedDict()
 
             all_keys = [s.start() for s in self._steps]
+            #much faster to get all values in one go!
+            all_values = self.step(all_keys)
 
             start_key = np.amin(all_keys)
 
@@ -785,41 +787,24 @@ class Steps(AbstractStep):
             if end_key == Steps.get_epoch_end(self._using_dt):
                 end_key = all_keys[-2]
 
+            #The real value start and end points for the entire series of steps
             self._start = start_key
             self._end = end_key
 
-            #much faster to get all values in one go!
-            all_values = self.step(all_keys)
-
-            for k,v in zip(all_keys, all_values):
-                data[k] = v
+            #Actually build the dict
+            data.update({k:v for k,v in zip(all_keys, all_values)})
 
             return data
         else:
             data:defaultdict = defaultdict(lambda:0)
-
             data[Steps.get_epoch_start(self._using_dt)] = self(Steps.get_epoch_start(self._using_dt))[0]
 
             for s in self._steps:
-                if only_ends and s.end() is not None:
-                    data[s.end()] += s.weight()                    
-                else:
-                    data[s.start()] += s.weight()
-                    if s.end() is not None:
-                        data[s.end().start()] += s.end().weight()
+                data[s.start()] += s.weight()
 
             return SortedDict(data)
     
     def to_dataframe(self) -> pd.DataFrame:
-
-        # if mode in ['aggregate','cummulative']:
-        #     data = self.to_dict(mode == 'cummulative')
-        #     df = pd.DataFrame.from_dict({'start': list(data.keys()), 'value': list(data.values())})
-        #     df.replace(Steps.get_epoch_start(self._using_dt),pd.NaT,inplace=True)
-        #     df.replace(Steps.get_epoch_end(self._using_dt),pd.NaT,inplace=True)
-
-        #     return df
-        # elif mode == 'full':
         data:array = []
 
         for s in self._truesteps:
