@@ -701,14 +701,14 @@ class Steps(AbstractStep):
 
     def clip(self,lbound:T=None,ubound:T=None) -> Steps:
         
-        neg_inf_val = 0
+        # neg_inf_val = 0
 
-        if self._using_dt:
-            delta = pd.Timedelta(1,unit='ns')
-            neg_inf_val = (self(Steps.get_epoch_start(True)))[0]
-        else:
-            delta = 0.000000001
-            neg_inf_val = (self(Steps.get_epoch_start(False)))[0]
+        # if self._using_dt:
+        #     delta = pd.Timedelta(1,unit='ns')
+        #     neg_inf_val = (self(Steps.get_epoch_start(True)))[0]
+        # else:
+        #     delta = 0.000000001
+        #     neg_inf_val = (self(Steps.get_epoch_start(False)))[0]
 
         data = self.to_dict(False)
 
@@ -717,15 +717,11 @@ class Steps(AbstractStep):
         elif lbound is None:
             new_steps = np.array([Step(start=k,weight=v) for k,v in data.items() if (v != 0) and (k <= ubound)])
             
-            #clip_end = (self.step(ubound))[0]
-            #new_steps = np.append(new_steps,Step(start=ubound,weight=-1*clip_end))
-
-            # if neg_inf_val != 0:
-            #     new_steps = np.append(new_steps,Step(weight=neg_inf_val,use_datetime=self._using_dt))
+            clip_end = (self.step(ubound))[0]
+            new_steps = np.append(new_steps,Step(start=ubound,weight=-1*clip_end))
 
         elif ubound is None:
             new_steps = np.array([Step(start=k,weight=v) for k,v in data.items() if (v != 0) and (k >= lbound)])
-
             clip_start = (self.step(lbound))[0]
             new_steps = np.append(new_steps,Step(start=lbound,weight=clip_start))
 
@@ -736,6 +732,7 @@ class Steps(AbstractStep):
                 new_steps = np.array([Step(start=k,weight=v) for k,v in data.items() if (v != 0) and (k >= lbound)])
                 clip_start = (self.step(lbound))[0]
                 new_steps = np.append(new_steps,Step(start=lbound,weight=clip_start))
+
             else:
                 new_steps = np.array([Step(start=k,weight=v) for k,v in data.items() if (v != 0) and (k >= lbound) and (k <= ubound)])
 
@@ -788,12 +785,16 @@ class Steps(AbstractStep):
 
             start_key = np.amin(all_keys)
 
-            if start_key == Steps.get_epoch_start(self._using_dt):
+            if start_key == Steps.get_epoch_start(self._using_dt) and len(all_keys) > 1:
                 start_key = all_keys[1]
+            else:
+                start_key = all_keys[0]
 
             end_key = np.amax(all_keys)
-            if end_key == Steps.get_epoch_end(self._using_dt):
+            if end_key == Steps.get_epoch_end(self._using_dt) and len(all_keys) > 2:
                 end_key = all_keys[-2]
+            else:
+                end_key = all_keys[-1]
 
             #The real value start and end points for the entire series of steps
             self._start = start_key
@@ -910,38 +911,39 @@ class Steps(AbstractStep):
             else:
                 ts_grain = 0.00001
 
-            #print((raw_steps.keys())[0],ts_grain)
 
-            # if plot_range is not None and type(plot_range) in [list,array]:
-            #     if plot_range[0] != None:
-            #         start_key = (raw_steps.keys())[0] - plot_range[0]
-            #         raw_steps[start_key] = self(start_key)
-            #     else:
-            #         zero_key = (raw_steps.keys())[0] - ts_grain
-            #         raw_steps[zero_key] = self(zero_key)
-                
-            #     if plot_range[1] != None:
-            #         end_key = (raw_steps.keys())[-1] + plot_range[1]
-            #         raw_steps[end_key] = self(end_key)
-            #     else:
-            #         end_key = (raw_steps.keys())[-1] + ts_grain
-            #         raw_steps[end_key] = self(end_key)
-            # else:
-            #     zero_key = (raw_steps.keys())[0] - ts_grain
-            #     raw_steps[zero_key] = self(zero_key)
-                
-            #     end_key = (raw_steps.keys())[-1] + ts_grain
-            #     raw_steps[end_key] = self(end_key)
-
-            #print((raw_steps.keys()))
             if len(raw_steps.keys()) == 0:
-                ax.axhline(self(0)[0],color=color, **kargs)
+                if plot_range is None:
+                    ax.axhline(self(0)[0],color=color, **kargs)
+                else:
+                    ax.hlines(self(0)[0],plot_range[0],plot_range[1],color=color, **kargs)
             else:
-                zero_key = (raw_steps.keys())[0] - ts_grain
-                raw_steps[zero_key] = self(zero_key)            
+                if plot_range is not None and type(plot_range) in [list,array]:
+                    if plot_range[0] != None:
+                        start_key = (raw_steps.keys())[0] - plot_range[0]
+                        raw_steps[start_key] = self(start_key)
+                    else:
+                        zero_key = (raw_steps.keys())[0] - ts_grain
+                        raw_steps[zero_key] = self(zero_key)
+                    
+                    if plot_range[1] != None:
+                        end_key = (raw_steps.keys())[-1] + plot_range[1]
+                        raw_steps[end_key] = self(end_key)
+                    else:
+                        end_key = (raw_steps.keys())[-1] + ts_grain
+                        raw_steps[end_key] = self(end_key)
+                else:
+                    zero_key = (raw_steps.keys())[0] - ts_grain
+                    raw_steps[zero_key] = self(zero_key)
+                    
+                    end_key = (raw_steps.keys())[-1] + ts_grain
+                    raw_steps[end_key] = self(end_key)
+
+                    zero_key = (raw_steps.keys())[0] - ts_grain
+                    raw_steps[zero_key] = self(zero_key)            
+                    ax.step(raw_steps.keys(),raw_steps.values(), where=where,color=color, **kargs)
+                            
                 ax.step(raw_steps.keys(),raw_steps.values(), where=where,color=color, **kargs)
-                           
-            ax.step(raw_steps.keys(),raw_steps.values(), where=where,color=color, **kargs)
 
         elif method == 'pretty':
             raw_steps = self._cummulative
@@ -959,31 +961,40 @@ class Steps(AbstractStep):
             else:
                 ts_grain = 0.00001
 
-            # if plot_range is not None and type(plot_range) in [list,array]:
-            #     if plot_range[0] != None:
-            #         start_key = (raw_steps.keys())[0] - plot_range[0]
-            #         raw_steps[start_key] = self(start_key)
-            #     else:
-            #         zero_key = (raw_steps.keys())[0] - ts_grain
-            #         raw_steps[zero_key] = self(zero_key)
-                
-            #     if plot_range[1] != None:
-            #         end_key = (raw_steps.keys())[-1] + plot_range[1]
-            #         raw_steps[end_key] = self(end_key)
-            #     else:
-            #         end_key = (raw_steps.keys())[-1] + ts_grain
-            #         raw_steps[end_key] = self(end_key)
-            # else:
-            #     zero_key = (raw_steps.keys())[0] - ts_grain
-            #     raw_steps[zero_key] = self(zero_key)
-                
-            #     end_key = (raw_steps.keys())[-1] + ts_grain
-            #     raw_steps[end_key] = self(end_key)
+            if len(raw_steps.keys()) == 0:
+                if plot_range is None:
+                    ax.axhline(self(0)[0],color=color, **kargs)
+                else:
+                    ax.hlines(self(0)[0],plot_range[0],plot_range[1],color=color, **kargs)
+            else:
+                if plot_range is not None and type(plot_range) in [list,array]:
+                    if plot_range[0] != None:
+                        start_key = (raw_steps.keys())[0] - plot_range[0]
+                        raw_steps[start_key] = self(start_key)
+                    else:
+                        start_key = (raw_steps.keys())[0] - ts_grain
+                        raw_steps[start_key] = self(start_key)
+                    
+                    if plot_range[1] != None:
+                        end_key = (raw_steps.keys())[-1] + plot_range[1]
+                        raw_steps[end_key] = self(end_key)
+                    else:
+                        end_key = (raw_steps.keys())[-1] + ts_grain
+                        raw_steps[end_key] = self(end_key)
+                else:
+                    start_key = (raw_steps.keys())[0] - ts_grain
+                    raw_steps[start_key] = self(start_key)
+                    
+                    end_key = (raw_steps.keys())[-1] + ts_grain
+                    raw_steps[end_key] = self(end_key)
 
-            zero_key = (raw_steps.keys())[0] - ts_grain
-            raw_steps[zero_key] = self([zero_key])
+                    start_key = (raw_steps.keys())[0] - ts_grain
+                    raw_steps[start_key] = self(start_key)            
+                    Steps._prettyplot(raw_steps,plot_start=start_key,plot_start_value=0,ax=ax,color=color,**kargs)
+                            
+                Steps._prettyplot(raw_steps,plot_start=start_key,plot_start_value=0,ax=ax,color=color,**kargs)
 
-            Steps._prettyplot(raw_steps,plot_start=zero_key,plot_start_value=0,ax=ax,color=color,**kargs)
+            #Steps._prettyplot(raw_steps,plot_start=zero_key,plot_start_value=0,ax=ax,color=color,**kargs)
 
         elif method == 'function':
                 tsx = Steps.get_plot_range(self._start,self._end,ts_grain,use_datetime=self._using_dt)
@@ -1029,30 +1040,38 @@ class Steps(AbstractStep):
             else:
                 ts_grain = 0.01
 
-            # if plot_range is not None and type(plot_range) in [list,array]:
-            #     if plot_range[0] != None:
-            #         start_key = (raw_steps.keys())[0] - plot_range[0]
-            #         raw_steps[start_key] = self(start_key)
-            #     else:
-            #         zero_key = (raw_steps.keys())[0] - ts_grain
-            #         raw_steps[zero_key] = self(zero_key)
-                
-            #     if plot_range[1] != None:
-            #         end_key = (raw_steps.keys())[-1] + plot_range[1]
-            #         raw_steps[end_key] = self(end_key)
-            #     else:
-            #         end_key = (raw_steps.keys())[-1] + ts_grain
-            #         raw_steps[end_key] = self(end_key)
-            # else:
-            #     zero_key = (raw_steps.keys())[0] - ts_grain
-            #     raw_steps[zero_key] = self(zero_key)
-                
-            #     end_key = (raw_steps.keys())[-1] + ts_grain
-            #     raw_steps[end_key] = self(end_key)
+            if len(raw_steps.keys()) == 0:
+                if plot_range is None:
+                    ax.axhline(self(0)[0],color=color, **kargs)
+                else:
+                    ax.hlines(self(0)[0],plot_range[0],plot_range[1],color=color, **kargs)
+            else:
+                if plot_range is not None and type(plot_range) in [list,array]:
+                    if plot_range[0] != None:
+                        start_key = (raw_steps.keys())[0] - plot_range[0]
+                        raw_steps[start_key] = self(start_key)
+                    else:
+                        zero_key = (raw_steps.keys())[0] - ts_grain
+                        raw_steps[zero_key] = self(zero_key)
+                    
+                    if plot_range[1] != None:
+                        end_key = (raw_steps.keys())[-1] + plot_range[1]
+                        raw_steps[end_key] = self(end_key)
+                    else:
+                        end_key = (raw_steps.keys())[-1] + ts_grain
+                        raw_steps[end_key] = self(end_key)
+                else:
+                    zero_key = (raw_steps.keys())[0] - ts_grain
+                    raw_steps[zero_key] = self(zero_key)
+                    
+                    end_key = (raw_steps.keys())[-1] + ts_grain
+                    raw_steps[end_key] = self(end_key)
 
-            zero_key = (raw_steps.keys())[0] - ts_grain
-            raw_steps[zero_key] = self([zero_key])
-            ax.step(raw_steps.keys(),raw_steps.values(), where=where,color=color, **kargs)
+                    zero_key = (raw_steps.keys())[0] - ts_grain
+                    raw_steps[zero_key] = self(zero_key)            
+                    ax.step(raw_steps.keys(),raw_steps.values(), where=where,color=color, **kargs)
+                            
+                ax.step(raw_steps.keys(),raw_steps.values(), where=where,color=color, **kargs)
 
         return ax
 
@@ -1183,7 +1202,7 @@ class Steps(AbstractStep):
                         return new_instance.add([Step(start=self._start,end=self._end)])
                 else:
                     if self(Steps.get_epoch_end(self._using_dt)) != 0:
-                        return new_instance.add([Step()])
+                        return new_instance.add([Step(use_datetime=self._using_dt)])
                     else:
                         return new_instance.add([Step(end=self._end)])
                     
