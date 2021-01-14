@@ -717,7 +717,7 @@ class Steps(AbstractStep):
             new_steps = np.array([Step(start=k,weight=v) for k,v in data.items() if (v != 0) and (k <= ubound)])
             
             clip_end = (self.step(ubound))[0]
-            new_steps = np.append(new_steps,Step(start=ubound,weight=-1*clip_end))
+            #new_steps = np.append(new_steps,Step(start=ubound,weight=-1*clip_end))
 
             # if neg_inf_val != 0:
             #     new_steps = np.append(new_steps,Step(weight=neg_inf_val,use_datetime=self._using_dt))
@@ -735,7 +735,7 @@ class Steps(AbstractStep):
             clip_end = (self.step(ubound))[0]
 
             new_steps = np.append(new_steps,Step(start=lbound,weight=clip_start))
-            new_steps = np.append(new_steps,Step(start=ubound,weight=-1*clip_end))
+            #new_steps = np.append(new_steps,Step(start=ubound,weight=-1*clip_end))
         
         new_clipped = Steps(self.using_datetime())
 
@@ -805,7 +805,7 @@ class Steps(AbstractStep):
             return SortedDict(data)
     
     def to_dataframe(self) -> pd.DataFrame:
-        
+
         data:array = []
 
         for s in self._truesteps:
@@ -1002,15 +1002,15 @@ class Steps(AbstractStep):
             new_instance = Steps(use_datetime=self._using_dt,basis=self._basis)
             new_steps = []
             
-            #all_keys = 
-            all_values = self.step([s.start() for s in self._steps])
+            all_keys = [s.start() for s in self._steps]
+            all_values = self.step(all_keys)
 
             mask = np.where(op_func(all_values,other), True,False)
-            #mask = np.where(op_func(self._cumsum,other), True,False)
             
             first = True
             st = None
             all_true=True
+
             for i ,s in enumerate(self._steps):
                 if mask[i]:
                     if first:
@@ -1032,7 +1032,8 @@ class Steps(AbstractStep):
                         st = None
 
             if all_true:
-                return new_instance.add([Step(start=st.start(),end=self._steps[-1].start(),weight=1),Step(start=self._steps[-1].start(),weight=1)])
+                #return new_instance.add([Step(start=st.start(),end=self._steps[-1].start(),weight=1),Step(start=self._steps[-1].start(),weight=1)])
+                return new_instance.add([Step(start=self._start,end=self._end)])
             else:
                 last_step = new_steps[-1]
                 #new_steps.append(Step(start=self._steps[-1].start(),weight=-1*last_step.weight()))
