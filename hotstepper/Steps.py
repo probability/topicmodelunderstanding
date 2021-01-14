@@ -805,6 +805,7 @@ class Steps(AbstractStep):
             return SortedDict(data)
     
     def to_dataframe(self) -> pd.DataFrame:
+        
         data:array = []
 
         for s in self._truesteps:

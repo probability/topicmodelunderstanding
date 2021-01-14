@@ -136,30 +136,30 @@ class AbstractStep(metaclass=abc.ABCMeta):
                 end = pd.to_datetime(end)
                 shift = end - start
                 span_seconds = shift.value
-                shift = pd.Timedelta(nanoseconds=int(0.1*span_seconds))
+                shift = pd.Timedelta(nanoseconds=int(0.05*span_seconds))
 
                 if delta is None:
                     if int(0.01*span_seconds) > 0:
-                        delta = pd.Timedelta(nanoseconds=int(0.01*span_seconds))
+                        delta = pd.Timedelta(nanoseconds=int(0.005*span_seconds))
                     else:
                         delta = pd.Timedelta(seconds=10)
                 
                 return np.arange(start-shift, end + shift, delta).astype(pd.Timestamp)
             else:
                 if start.hour > 0:
-                    shift = pd.Timedelta(hours=4)
+                    shift = pd.Timedelta(hours=5)
                     delta = pd.Timedelta(hours=1)
                 elif start.minute > 0:
-                    shift = pd.Timedelta(minutes=10)
+                    shift = pd.Timedelta(minutes=6)
                     delta = pd.Timedelta(minutes=2)
                 else:
-                    shift = pd.Timedelta(hours=36)
-                    delta = pd.Timedelta(hours=2)
+                    shift = pd.Timedelta(hours=18)
+                    delta = pd.Timedelta(hours=3)
 
                 return np.arange(start-shift, start + shift, delta).astype(pd.Timestamp)
         else:
             if end is not None:
-                shift = 0.1*(end - start)
+                shift = 0.03*(end - start)
 
                 if delta is None:
                     delta = 0.1*shift
