@@ -80,12 +80,16 @@ class AbstractStep(metaclass=abc.ABCMeta):
         dfplot = pd.DataFrame()
         dfplot['x'] = xdata
         dfplot['y'] = ydata
+
+        color = kargs.pop('color',None)
+        if color is None:
+            color=AbstractStep.get_default_plot_color()
         
         if cdata is None:
-            dfplot.plot(x='x',y='y', ax=ax, **kargs)
+            dfplot.plot(x='x',y='y', ax=ax,color=color, **kargs)
         else:
             dfplot['c'] = cdata
-            dfplot.plot(x='x',y='y', c='c', ax=ax, **kargs)
+            dfplot.plot(x='x',y='y', c='c', ax=ax,color=color, **kargs)
 
         return ax
 

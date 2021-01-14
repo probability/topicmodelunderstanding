@@ -575,7 +575,20 @@ class Steps(AbstractStep):
     def ecdf_plot(self,ax=None,**kargs):
         x,y = self.ecdf()
 
-        return Steps.simple_plot(x,y,ax=ax,legend=False,**kargs)
+        kind = kargs.pop('kind',None)
+        if kind is None:
+            kind='bar'
+            fill=False
+
+        fill = kargs.pop('fill',None)
+        if fill is None:
+            fill=False
+
+        edgecolor = kargs.pop('edgecolor',None)
+        if edgecolor is None:
+            edgecolor=Steps.get_default_plot_color()
+
+        return Steps.simple_plot(x,y,ax=ax,legend=False,kind=kind,fill=fill,**kargs)
 
     def ecdf_step(self):
         x,y = self.ecdf()
@@ -706,8 +719,8 @@ class Steps(AbstractStep):
             clip_end = (self.step(ubound))[0]
             new_steps = np.append(new_steps,Step(start=ubound,weight=-1*clip_end))
 
-            if neg_inf_val != 0:
-                new_steps = np.append(new_steps,Step(weight=neg_inf_val,use_datetime=self._using_dt))
+            # if neg_inf_val != 0:
+            #     new_steps = np.append(new_steps,Step(weight=neg_inf_val,use_datetime=self._using_dt))
 
         elif ubound is None:
             new_steps = np.array([Step(start=k,weight=v) for k,v in data.items() if (v != 0) and (k >= lbound)])
@@ -761,7 +774,6 @@ class Steps(AbstractStep):
         if use_cummulative:
             data:SortedDict = SortedDict()
 
-            #all_keys = [s.start() for s in self._steps if s.start() != Steps.get_epoch_start(self._using_dt)]
             all_keys = [s.start() for s in self._steps]
 
             start_key = np.amin(all_keys)
@@ -796,31 +808,30 @@ class Steps(AbstractStep):
                     if s.end() is not None:
                         data[s.end().start()] += s.end().weight()
 
-
             return SortedDict(data)
     
-    def to_dataframe(self,mode:str = 'full') -> pd.DataFrame:
+    def to_dataframe(self) -> pd.DataFrame:
 
-        if mode in ['aggregate','cummulative']:
-            data = self.to_dict(mode == 'cummulative')
-            df = pd.DataFrame.from_dict({'start': list(data.keys()), 'value': list(data.values())})
-            df.replace(Steps.get_epoch_start(self._using_dt),pd.NaT,inplace=True)
-            df.replace(Steps.get_epoch_end(self._using_dt),pd.NaT,inplace=True)
+        # if mode in ['aggregate','cummulative']:
+        #     data = self.to_dict(mode == 'cummulative')
+        #     df = pd.DataFrame.from_dict({'start': list(data.keys()), 'value': list(data.values())})
+        #     df.replace(Steps.get_epoch_start(self._using_dt),pd.NaT,inplace=True)
+        #     df.replace(Steps.get_epoch_end(self._using_dt),pd.NaT,inplace=True)
 
-            return df
-        elif mode == 'full':
-            data:array = []
+        #     return df
+        # elif mode == 'full':
+        data:array = []
 
-            for s in self._truesteps:
-                if s.end() is not None:
-                    data.append({'start': s._start,'end':s.end()._start,'value':s._weight})                  
+        for s in self._truesteps:
+            if s.end() is not None:
+                data.append({'start': s.start(),'end':s.end().start(),'value':s.weight()})                  
+            else:
+                if s._direction == 1:
+                    data.append({'start': s.start(),'end':None,'value':s.weight()})
                 else:
-                    if s._direction == 1:
-                        data.append({'start': s._start,'end':None,'value':s._weight})
-                    else:
-                        data.append({'start': None,'end':s._start,'value':s._weight})
+                    data.append({'start': None,'end':s.start(),'value':s._weight})
 
-            return pd.DataFrame.from_dict(data)
+        return pd.DataFrame.from_dict(data)
 
 
     def __getitem__(self,x:T) -> T:
@@ -936,24 +947,7 @@ class Steps(AbstractStep):
             Steps._prettyplot(raw_steps,plot_start=zero_key,plot_start_value=0,ax=ax,color=color,**kargs)
 
         elif method == 'function':
-            # step_ts = np.array([s.start_ts() for s in self._steps if s.start() !=Steps.get_epoch_start(self._using_dt)])
-            # max_ts = np.amax(step_ts)
-            # min_ts = np.amin(step_ts)
-            
-            # if self._using_dt:
-            #     if ts_grain==None:
-            #         ts_grain = pd.Timedelta(minutes=10)
-                
-            #     tsx = np.arange(self._start-ts_grain, self._end, ts_grain).astype(pd.Timestamp)
-            #     ax.step(tsx,self.step(tsx), where=where,color=color, **kargs)
-            # else:
-            #     if ts_grain==None:
-            #         ts_grain = 0.01
-                
-                #tsx = np.arange(self._start-ts_grain, self._end, ts_grain)
-                #end_start = self._end._start if self._end is not None else None
                 tsx = Steps.get_plot_range(self._start,self._end,ts_grain,use_datetime=self._using_dt)
-
                 ax.step(tsx,self.step(tsx), where=where,color=color, **kargs)
                 
         elif method == 'smooth':
@@ -963,41 +957,22 @@ class Steps(AbstractStep):
 
             if smooth_factor is None:
                 smooth_factor = (max_ts - min_ts)/250
-            
-            # if self._using_dt:
-            #     if ts_grain==None:
-            #         ts_grain = pd.Timedelta(minutes=10)
-                
-            #     tsx = np.arange(self._start-ts_grain, self._end, ts_grain).astype(pd.Timestamp)
-            # else:
-            #     if ts_grain==None:
-            #         ts_grain = 0.00001
-                
-            #     tsx = np.arange(self._start-ts_grain, self._end, ts_grain)
-            
-            #end_start = self._end._start if self._end is not None else None
+
             tsx = Steps.get_plot_range(self._start,self._end,ts_grain,use_datetime=self._using_dt)
-            ax.step(tsx,self.smooth_step(tsx,smooth_factor = smooth_factor), where=where,color=color, **kargs)
+            ax.plot(tsx,self.smooth_step(tsx,smooth_factor = smooth_factor),color=color, **kargs)
 
-        elif method == 'experiment':
-            raw_steps = self._cummulative
-            
-            #throw off the infinity end points if they are present
-            # try:
-            #     raw_steps.pop(Steps.get_epoch_start(self._using_dt))
-            #     raw_steps.pop(Steps.get_epoch_end(self._using_dt))
-            # except:
-            #     pass
+        # elif method == 'experiment':
+        #     raw_steps = self._cummulative
 
-            # small offset to ensure we plot the initial step transition
-            if self._using_dt:
-                ts_grain = pd.Timedelta(minutes=10)
-            else:
-                ts_grain = 0.01
+        #     # small offset to ensure we plot the initial step transition
+        #     if self._using_dt:
+        #         ts_grain = pd.Timedelta(minutes=10)
+        #     else:
+        #         ts_grain = 0.01
 
-            zero_key = (raw_steps.keys())[0] - ts_grain
-            raw_steps[zero_key] = self([zero_key])
-            ax.step(raw_steps.keys(),self.smooth_step(raw_steps.keys()), where=where,color=color, **kargs)
+        #     zero_key = (raw_steps.keys())[0] - ts_grain
+        #     raw_steps[zero_key] = self([zero_key])
+        #     ax.step(raw_steps.keys(),self.smooth_step(raw_steps.keys()), where=where,color=color, **kargs)
 
         else:
             raw_steps = self._cummulative
@@ -1329,7 +1304,11 @@ class Steps(AbstractStep):
     def pacf_plot(self, maxlags:int = None,ax=None,**kargs):
         lags, pac = self.pacf(maxlags)
 
-        return Steps.simple_plot(lags,pac,ax=ax,legend=False,**kargs)
+        kind = kargs.pop('kind',None)
+        if kind is None:
+            kind='bar'
+
+        return Steps.simple_plot(lags,pac,ax=ax,legend=False,kind=kind,**kargs)
 
     def percentile(self,percent):
         return Analysis.percentile(self,percent)
