@@ -5,7 +5,7 @@ from matplotlib.axes import Axes
 import numpy as np
 
 try:
-    import cupy as cp
+    import numpy as cp
 except ImportError:
     import numpy as cp
 

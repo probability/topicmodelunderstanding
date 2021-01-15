@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 try:
-    import cupy as xp
+    import numpy as xp
 except ImportError:
     import numpy as xp
 

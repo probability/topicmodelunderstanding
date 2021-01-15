@@ -2,7 +2,7 @@ from __future__ import annotations
 import numpy as np
 
 try:
-    import cupy as xp
+    import numpy as xp
 except ImportError:
     import numpy as xp
 

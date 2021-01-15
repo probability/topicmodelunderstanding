@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 try:
-    import cupy as xp
+    import numpy as xp
 except ImportError:
     import numpy as xp
 
@@ -1082,7 +1082,7 @@ class Steps(AbstractStep):
 
         return ax
 
-    def _operate_norm_new(self,other:V, op_func) -> Steps:
+    def _operate_norm(self,other:V, op_func) -> Steps:
         """
         This function is used to create a normalised representation of the steps that results from applying the comparison function
         to the cummulative total of the steps.
@@ -1106,59 +1106,28 @@ class Steps(AbstractStep):
             all_keys = [s.start() for s in self._steps]
             all_values = self.step(all_keys)
 
-            mask = np.where(op_func(all_values,other), True,False)
+            mask = np.where(op_func(all_values,other), np.sign(all_values),0)
 
-            groups = [(group[0],group[-1]) for group in (list(group) for key, group in groupby(range(len(mask)), key=mask.__getitem__) if key)]
+            groups = [(group[0],group[-1]) for group in (list(group) for key, group in groupby(range(len(mask)), key=mask.__getitem__) if key!=0)]
 
-            
             for g in groups:
                 s = g[0]
                 e = g[-1]
 
-                if s == 0 and e == len(self._steps)-1:
-                    return new_instance.add([Step(start=self._start,end=self._end)])
+                if s == 0 and e >= len(self._steps)-1:
+                    return new_instance.add([Step(start=self._steps[0].start(),end=self._steps[-1].start(),weight=np.sign(all_values[s]))])
 
                 if s != e:
-                    new_steps.append(Step(start=self._steps[s].start(), end=self._steps[e].start()))
+                    e = g[-1] if e >= len(self._steps)-1 else g[-1]+1
+                    new_steps.append(Step(start=self._steps[s].start(), end=self._steps[e].start(),weight=np.sign(all_values[s])))
+                else:
+                    new_steps.append(Step(start=self._steps[s].start(), end=self._steps[s+1].start(),weight=np.sign(all_values[s])))
                 
-            
-            # first = True
-            # st = None
-            # all_true=True
-
-            # for i ,s in enumerate(self._steps):
-            #     if mask[i]:
-            #         if first:
-            #             st = s
-            #             first=False
-            #             if st._direction ==1:
-            #                 new_steps.append(Step(start=st.start(),weight=1))
-            #             else:
-            #                 new_steps.append(Step(start=st.start(),weight=1))
-            #             continue
-            #     else:
-            #         all_true = False
-            #         if not first:
-            #             first=True
-            #             if s._direction == 1:
-            #                 new_steps.append(Step(start=s.start(),weight=-1))
-            #             else:
-            #                 new_steps.append(Step(start=s.start(),weight=-1))
-            #             st = None
-
-            # if all_true:
-            #     #return new_instance.add([Step(start=st.start(),end=self._steps[-1].start(),weight=1),Step(start=self._steps[-1].start(),weight=1)])
-            #     return new_instance.add([Step(start=self._start,end=self._end)])
-            # else:
-            #     last_step = new_steps[-1]
-                #new_steps.append(Step(start=self._steps[-1].start(),weight=-1*last_step.weight()))
-                #new_steps.append(Step(start=self._steps[-1].start(),weight=last_step.weight()))
-
             new_instance.add(new_steps)
             return new_instance
 
 
-    def _operate_norm(self,other:V, op_func) -> Steps:
+    def _operate_norm_old(self,other:V, op_func) -> Steps:
         """
         This function is used to create a normalised representation of the steps that results from applying the comparison function
         to the cummulative total of the steps.
@@ -1222,19 +1191,85 @@ class Steps(AbstractStep):
             new_instance.add(new_steps)
             return new_instance
 
-    def _operate_value(self,other:V, op_func) -> Steps:
+    def _operate_value_new(self,other:V, op_func) -> Steps:
+        """
+        This function is used to create filtered version of the steps by removing steps not evaluating to true from applying the comparison function
+        to the cummulative total of the steps.
+
+        Parameters
+        ===========
+        other : int, float, Step, Steps. Any value to compare each step component against.
+        op_func : Numpy Universal Function. A binary comparison function that returns a bool, e.g >,<,==.
+
+        Returns:
+        ==========
+        Steps: A new steps instance with only step locations everywhere the filter condition was true.
         
+        """
+
+        if type(other) in [float,int]:
+            new_instance = Steps(use_datetime=self._using_dt,basis=self._basis)
+
+            new_steps = np.array([],dtype=Step)
+            
+            all_keys = [s.start() for s in self._steps]
+            all_values = self.step(all_keys)
+
+            mask = np.where(op_func(all_values,other), True,False)
+
+            groups = [(group[0],group[-1]) for group in (list(group) for key, group in groupby(range(len(mask)), key=mask.__getitem__) if key)]
+
+            for g in groups:
+                s = g[0]
+                e = g[-1]
+
+                if s == 0 and e >= len(self._steps)-1:
+                    return self
+
+                if s != e:
+                    e = g[-1] if e >= len(self._steps)-1 else g[-1]+1
+                    #add new first and last steps
+                    first_step = self._steps[s].copy()
+                    first_step._weight = all_values[s]
+                    adjustment = np.sum([s.weight() for s in self._steps[s+1:e]])
+                    last_step = self._steps[e].copy()
+                    last_step._weight = -1*all_values[s] + adjustment
+
+                    new_steps = np.append(new_steps,[first_step,last_step])
+                    new_steps = np.append(new_steps,copy.deepcopy(self._steps[s+1:e]))
+
+                else:
+                    first_step = self._steps[s].copy()
+                    first_step._weight = all_values[s]
+                    last_step = self._steps[s+1].copy()
+                    last_step._weight = -1*all_values[s]
+
+                    new_steps = np.append(new_steps,[first_step,last_step])
+                    #new_steps.append(self._steps[s+1:e-1])
+
+                    #new_steps.append(Step(start=self._steps[s].start(), end=self._steps[s+1].start(),weight=np.sign(all_values[s])))
+                
+            new_instance.add(new_steps)
+            return new_instance
+
+    def _operate_value(self,other:V, op_func) -> Steps:
+        """
+        This function is used to create filtered version of the steps by removing steps not evaluating to true from applying the comparison function
+        to the cummulative total of the steps.
+
+        Parameters
+        ===========
+        other : int, float, Step, Steps. Any value to compare each step component against.
+        op_func : Numpy Universal Function. A binary comparison function that returns a bool, e.g >,<,==.
+
+        Returns:
+        ==========
+        Steps: A new steps instance with only step locations everywhere the filter condition was true.
+        """
+
         if type(other) in [float,int]:
             new_instance = Steps(use_datetime=self._using_dt,basis=self._basis)
             new_steps = []
-            mid_steps = []
-            
-            # we use cumsum to ensure we have the same number of values as steps,
-            # since some steps can start at the same point
-            #mask = np.where(op_func(self._cumsum,other), True,False)
-            #all_keys = [s.start() for s in self._steps]
-            #all_values = self.step(all_keys)
-            
             #all_keys = np.array(list(self._cummulative.keys()))
             #all_values = np.array(list(self._cummulative.values()))
             
@@ -1252,26 +1287,15 @@ class Steps(AbstractStep):
                     if first:
                         st = s
                         first=False
-                        if st._direction == 1:
-                            new_steps.append(Step(start=st.start(),weight=self._cummulative[st.start()]))
-                        else:
-                            new_steps.append(Step(start=st.start(),weight=self._cummulative[st.start()]))
-                        continue
+                        new_steps.append(Step(start=st.start(),weight=self._cummulative[st.start()]))
                     elif not (st is None) and (s.start_ts() > st.start_ts()):
-                        mid_steps.append(Step(start=s.start(),weight=s.weight()))
+                        new_steps.append(Step(start=s.start(),weight=s.weight()))
                         adj += s.weight()
                 else:
                     all_true = False
                     if not first:
                         first=True
-                        # the end of the big new step where the condition was met, we use adj to correct for changes
-                        # since the start of the step when we want to see the steps along the way, to ensure we return
-                        # to zero when condition is not met.
-                        if s._direction == 1:
-                            new_steps.append(Step(start=s.start(),weight=-1*(self._cummulative[st.start()] + adj)))
-                        else:
-                            new_steps.append(Step(start=s._start,weight=-1*(self._cummulative[st.start()] + adj)))
-
+                        new_steps.append(Step(start=s.start(),weight=-1*(self._cummulative[st.start()] + adj)))
                         adj = 0
                         st = None
             
@@ -1279,7 +1303,7 @@ class Steps(AbstractStep):
                 return self
 
             new_instance.add(new_steps)
-            new_instance.add(mid_steps)
+
             return new_instance
 
     def reflect(self,reflect_point:float = 0) -> Steps:
