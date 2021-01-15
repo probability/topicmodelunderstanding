@@ -1,8 +1,9 @@
 from __future__ import annotations
-from os import stat
+#from os import stat
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 import numpy as np
+
 try:
     import cupy as cp
 except ImportError:
@@ -10,10 +11,10 @@ except ImportError:
 
 import pandas as pd
 import abc
-import math
+#import math
 from sortedcontainers import SortedDict
 from datetime import datetime
-from typing import Optional, Union
+from typing import Union
 from hotstepper.Basis import Basis
 
 
@@ -212,15 +213,7 @@ class AbstractStep(metaclass=abc.ABCMeta):
         self._base = self._basis.base()
 
     def _faststep(self,x:list(T)) -> list(T):
-        
-        # if self._basis.lbound > -np.Inf or self._basis.ubound < np.Inf:
-        #     xr = np.where((x >= self.start_ts() + self._basis.lbound) & ( x <= self.start_ts() + self._basis.ubound),x,0)
-        # else:
-        #     xr = x
-        xr = x
-        res = self._weight*self._base((xr-self.start_ts())*self._direction,self._basis.param)
-        del xr
-
+        res = self._weight*self._base((x-self.start_ts())*self._direction,self._basis.param)
         return res
 
     @abc.abstractmethod

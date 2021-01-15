@@ -1,13 +1,14 @@
 from __future__ import annotations
-from ast import dump
+# from ast import dump
+# from functools import partial
 
 import matplotlib.pyplot as plt
 import numpy as np
 
 try:
-    import cupy as cp
+    import cupy as xp
 except ImportError:
-    import numpy as cp
+    import numpy as xp
 
 import copy
 from scipy import stats
@@ -22,7 +23,7 @@ from sortedcontainers import SortedDict,SortedSet
 from typing import DefaultDict, Optional, OrderedDict, Union
 from datetime import datetime, timedelta
 
-from docs.documentor import add_doc, append_doc
+#from docs.documentor import add_doc, append_doc
 
 from hotstepper.Basis import Basis
 from hotstepper.AbstractStep import AbstractStep
@@ -176,7 +177,7 @@ class Steps(AbstractStep):
 
 
     @staticmethod
-    def aggregate(stepss: list(Optional[Steps]), aggfunc:cp.ufunc, sample_points:list(T)=None) -> Steps:
+    def aggregate(stepss: list(Optional[Steps]), aggfunc:xp.ufunc, sample_points:list(T)=None) -> Steps:
         """
         Return weights for an Np-point central derivative.
         Assumes equally-spaced function points.
@@ -779,9 +780,17 @@ class Steps(AbstractStep):
         if use_cummulative:
             data:SortedDict = SortedDict()
 
-            all_keys = [s.start() for s in self._steps]
-            #much faster to get all values in one go!
-            all_values = self.step(all_keys)
+            all_keys = np.array([s.start() for s in self._steps])
+            all_values = self(all_keys)
+
+            # all_keys = np.array([s.start() for s in self._steps])
+            # all_values = np.array([s.weight() for s in self._steps])
+            # neg_inf_val = self.step(Steps.get_epoch_start(self._using_dt))[0]
+
+            # if neg_inf_val !=0:
+            #     all_values = np.insert(all_values,0,neg_inf_val,axis=0)
+
+            # all_values = np.cumsum(all_values,axis=0)
 
             start_key = np.amin(all_keys)
 
@@ -848,26 +857,24 @@ class Steps(AbstractStep):
                 x = np.arange(x.start,x.stop,x.step)
             
         if len(x) > 0 and Steps.is_date_time(x[0]):
-            xts = cp.array([t.timestamp() for t in x])
+            xts = xp.array([t.timestamp() for t in x])
         else:
-            xts = cp.array(x)
+            xts = xp.array(x)
             
         # bottle neck is right here!
         if len(self._steps) > 0:
-            stvals = cp.array([s._faststep(xts) for s in self._steps])
+            stvals = xp.array([s(xts) for s in self._steps])
         else:
-            if hasattr(cp,'asnumpy'):
-                return cp.asnumpy(cp.zeros(len(x)))
+            if hasattr(xp,'asnumpy'):
+                return xp.asnumpy(xp.zeros(len(x)))
             else:
-                return cp.zeros(len(x))
-            
-        
-        del xts
-        result = cp.sum(stvals,axis=0)
+                return xp.zeros(len(x))
+
+        result = xp.sum(stvals,axis=0)
         del stvals
 
-        if hasattr(cp,'asnumpy'):
-            return cp.asnumpy(result)
+        if hasattr(xp,'asnumpy'):
+            return xp.asnumpy(result)
         else:
             return result
 
@@ -1171,6 +1178,12 @@ class Steps(AbstractStep):
             new_instance = Steps(use_datetime=self._using_dt,basis=self._basis)
             new_steps = []
             
+            #all_keys = [s.start() for s in self._steps]
+            #all_values = self.step(all_keys)
+
+            #all_keys = np.array(list(self._cummulative.keys()))
+            #all_values = np.array(list(self._cummulative.values()))
+
             all_keys = [s.start() for s in self._steps]
             all_values = self.step(all_keys)
 
@@ -1219,9 +1232,15 @@ class Steps(AbstractStep):
             # we use cumsum to ensure we have the same number of values as steps,
             # since some steps can start at the same point
             #mask = np.where(op_func(self._cumsum,other), True,False)
+            #all_keys = [s.start() for s in self._steps]
+            #all_values = self.step(all_keys)
+            
+            #all_keys = np.array(list(self._cummulative.keys()))
+            #all_values = np.array(list(self._cummulative.values()))
+            
             all_keys = [s.start() for s in self._steps]
             all_values = self.step(all_keys)
-            
+
             mask = np.where(op_func(all_values,other), True,False)
             
             first = True

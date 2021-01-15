@@ -3,9 +3,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 try:
-    import cupy as cp
+    import cupy as xp
 except ImportError:
-    import numpy as cp
+    import numpy as xp
 
 import copy
 import pandas as pd
@@ -95,16 +95,18 @@ class Step(AbstractStep):
             return self._start_ts == other._start_ts and self._weight == other._weight and self._direction == other._direction and self._end == other._end
         else:
             raise TypeError('Can only directly compare step with step object.')
-        # elif type(other) is pd.Timestamp:
-        #     return self._start_ts == other.timestamp()
-        # else:
-        #     return self._start_ts == other
     
     def __getitem__(self,x:T) -> T:
-        return self.step(x)
+        if self._basis !=Basis.heaviside:
+            return self._faststep(x)
+        else:
+            return self.step(x)
 
     def __call__(self,x:T) -> T:
-        return self.step(x)
+        if self._basis !=Basis.heaviside:
+            return self._faststep(x)
+        else:
+            return self.step(x)
     
     def step(self,x:T) -> T:
 
@@ -114,16 +116,16 @@ class Step(AbstractStep):
             x = np.arange(x.start,x.stop,x.step)
             
         if len(x) > 0 and Step.is_date_time(x[0]):
-            xf = cp.asarray([(t.timestamp()-self.start_ts())*self._direction for t in x])
+            xf = xp.asarray([(t.timestamp()-self.start_ts())*self._direction for t in x])
         else:
-            xf = cp.asarray([(t-self.start_ts())*self._direction for t in x])
+            xf = xp.asarray([(t-self.start_ts())*self._direction for t in x])
             
         result = self._weight*self._base(xf,self._basis.param)
         end_st = self._end
         
         if end_st is not None and hasattr(end_st,'step') and callable(end_st.step):
-            if hasattr(cp,'asnumpy'):
-                cp_res = cp.asnumpy(result)
+            if hasattr(xp,'asnumpy'):
+                cp_res = xp.asnumpy(result)
             else:
                 cp_res = result
 
@@ -131,8 +133,8 @@ class Step(AbstractStep):
             
         del xf
         
-        if hasattr(cp,'asnumpy'):
-            return cp.asnumpy(result)
+        if hasattr(xp,'asnumpy'):
+            return xp.asnumpy(result)
         else:
             return result
 
@@ -160,9 +162,6 @@ class Step(AbstractStep):
         return self._direction
 
     def start_ts(self) -> T:
-        #n = pd.Timestamp.now()
-        #delta = pd.Timestamp.fromtimestamp(n.timestamp()) - pd.Timestamp.utcfromtimestamp(n.timestamp())
-
         return self._start_ts
     
     def start(self) -> T:
@@ -173,8 +172,6 @@ class Step(AbstractStep):
     
     def weight(self) -> T:
         return self._direction*self._weight
-
-    
 
     def __irshift__(self,other:T) -> Step:
         return self.__rshift__(other)
