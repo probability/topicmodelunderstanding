@@ -1,15 +1,6 @@
 from __future__ import annotations
-# from ast import dump
-# from functools import partial
-
 import matplotlib.pyplot as plt
 import numpy as np
-
-try:
-    import numpy as xp
-except ImportError:
-    import numpy as xp
-
 import copy
 from scipy import stats
 from statsmodels.tsa.tsatools import lagmat
@@ -25,7 +16,9 @@ from datetime import datetime, timedelta
 
 #from docs.documentor import add_doc, append_doc
 
+from hotstepper.Utils import Utils
 from hotstepper.Basis import Basis
+import hotstepper.fastbase as fb
 from hotstepper.AbstractStep import AbstractStep
 from hotstepper.Step import Step
 
@@ -135,7 +128,6 @@ class Analysis():
     def correlation(st:Steps,other:Steps) -> T:
         return Analysis.covariance(st,other)/(Analysis.std(st)*Analysis.std(other))
 
-
 class Steps(AbstractStep):
     """
     The main class representing a complex step function made of individual step objects. The Steps object can be treated as a 
@@ -164,7 +156,6 @@ class Steps(AbstractStep):
     -------
     An instance of the Steps object with no data attached, the same as a function $f(x) = 0, \\forall x$.
     """
-
     
     def __init__(self,use_datetime=False,basis:Basis = Basis()) -> None:
         super().__init__()
@@ -177,7 +168,7 @@ class Steps(AbstractStep):
 
 
     @staticmethod
-    def aggregate(stepss: list(Optional[Steps]), aggfunc:xp.ufunc, sample_points:list(T)=None) -> Steps:
+    def aggregate(stepss: list(Optional[Steps]), aggfunc:np.ufunc, sample_points:list(T)=None) -> Steps:
         """
         Return weights for an Np-point central derivative.
         Assumes equally-spaced function points.
@@ -487,7 +478,7 @@ class Steps(AbstractStep):
         self._steps = np.sort(self._steps)
         self._cummulative = self.to_dict()
 
-        self._using_dt = Steps.is_date_time(self._cummulative.keys()[0])
+        self._using_dt = Utils.is_date_time(self._cummulative.keys()[0])
 
         return self
 
@@ -656,7 +647,7 @@ class Steps(AbstractStep):
 
         x,y = self.histogram(bins,axis,ts_grain)
 
-        return Steps.simple_plot(x,y,ax=ax,legend=False,**kargs)
+        return Utils.simple_plot(x,y,ax=ax,legend=False,**kargs)
 
 
     def histogram_step(self, bins=None,axis=None,ts_grain = None):
@@ -691,7 +682,10 @@ class Steps(AbstractStep):
         return Steps.read_array(start=x, weight=y,convert_delta=True)
 
 
-    def rebase(self,new_basis:Basis = Basis(),change_steps=False) -> None:
+    def rebase(self,new_basis:Basis = None,change_steps=False) -> None:
+        if new_basis is None:
+            new_basis = Basis()
+
         if change_steps:
             self._basis = new_basis
             self._base = new_basis.base()
@@ -794,13 +788,13 @@ class Steps(AbstractStep):
 
             start_key = np.amin(all_keys)
 
-            if start_key == Steps.get_epoch_start(self._using_dt) and len(all_keys) > 1:
+            if start_key == Utils.get_epoch_start(self._using_dt) and len(all_keys) > 1:
                 start_key = all_keys[1]
             else:
                 start_key = all_keys[0]
 
             end_key = np.amax(all_keys)
-            if end_key == Steps.get_epoch_end(self._using_dt) and len(all_keys) > 2:
+            if end_key == Utils.get_epoch_end(self._using_dt) and len(all_keys) > 2:
                 end_key = all_keys[-2]
             else:
                 end_key = all_keys[-1]
@@ -815,7 +809,7 @@ class Steps(AbstractStep):
             return data
         else:
             data:defaultdict = defaultdict(lambda:0)
-            data[Steps.get_epoch_start(self._using_dt)] = self(Steps.get_epoch_start(self._using_dt))[0]
+            data[Utils.get_epoch_start(self._using_dt)] = self(Utils.get_epoch_start(self._using_dt))[0]
 
             for s in self._steps:
                 data[s.start()] += s.weight()
@@ -848,35 +842,53 @@ class Steps(AbstractStep):
         if not hasattr(x,'__iter__'):
             x = [x]
         elif type(x) is slice:
-            if Steps.is_date_time(x.start):
+            if Utils.is_date_time(x.start):
                 if x.step is None:
                     x = np.arange(x.start,x.stop,timedelta(minutes=1)).astype(pd.Timestamp)
                 else:
                     x = np.arange(x.start,x.stop,x.step).astype(pd.Timestamp)
             else:
                 x = np.arange(x.start,x.stop,x.step)
-            
-        if len(x) > 0 and Steps.is_date_time(x[0]):
-            xts = xp.array([t.timestamp() for t in x])
-        else:
-            xts = xp.array(x)
+        
+        xf = np.asarray(list(map(Utils.get_ts, x)))
             
         # bottle neck is right here!
         if len(self._steps) > 0:
-            stvals = xp.array([s(xts) for s in self._steps])
+            stvals = np.array([s.step(xf) for s in self._steps])
         else:
-            if hasattr(xp,'asnumpy'):
-                return xp.asnumpy(xp.zeros(len(x)))
-            else:
-                return xp.zeros(len(x))
+            return np.zeros(len(x))
 
-        result = xp.sum(stvals,axis=0)
+        result = np.sum(stvals,axis=0)
+
+        del xf
         del stvals
 
-        if hasattr(xp,'asnumpy'):
-            return xp.asnumpy(result)
-        else:
-            return result
+        return result
+
+    # def step_old(self, x:T) -> list(T):
+    #     if not hasattr(x,'__iter__'):
+    #         x = [x]
+    #     elif type(x) is slice:
+    #         if Steps.is_date_time(x.start):
+    #             if x.step is None:
+    #                 x = np.arange(x.start,x.stop,timedelta(minutes=1)).astype(pd.Timestamp)
+    #             else:
+    #                 x = np.arange(x.start,x.stop,x.step).astype(pd.Timestamp)
+    #         else:
+    #             x = np.arange(x.start,x.stop,x.step)
+        
+    #     xf = np.asarray(list(map(_get_ts, x)),dtype=float)
+            
+    #     # bottle neck is right here!
+    #     if len(self._steps) > 0:
+    #         stvals = np.array([s.step(xf) for s in self._steps])
+    #     else:
+    #         return np.zeros(len(x))
+
+    #     result = np.sum(stvals,axis=0)
+    #     del stvals
+
+    #     return result
 
 
     def smooth_plot(self,smooth_factor:Union[int,float] = None, ts_grain:Union[int,float,pd.Timedelta] = None,ax=None,where='post',**kargs):
@@ -894,21 +906,21 @@ class Steps(AbstractStep):
         if ax is None:
             size = kargs.pop('size',None)
             if size is None:
-                size=Steps.get_default_plot_size()
+                size=Utils.get_default_plot_size()
 
             _, ax = plt.subplots(figsize=size)
         
         color = kargs.pop('color',None)
         if color is None:
-            color=Steps.get_default_plot_color()
+            color=Utils.get_default_plot_color()
 
         if method == None:
             raw_steps = self._cummulative
 
             #throw off the infinity end points if they are present
             try:
-                raw_steps.pop(Steps.get_epoch_start(self._using_dt))
-                raw_steps.pop(Steps.get_epoch_end(self._using_dt))
+                raw_steps.pop(Utils.get_epoch_start(self._using_dt))
+                raw_steps.pop(Utils.get_epoch_end(self._using_dt))
             except:
                 pass
 
@@ -957,8 +969,8 @@ class Steps(AbstractStep):
 
              #throw off the infinity end points if they are present
             try:
-                raw_steps.pop(Steps.get_epoch_start(self._using_dt))
-                raw_steps.pop(Steps.get_epoch_end(self._using_dt))
+                raw_steps.pop(Utils.get_epoch_start(self._using_dt))
+                raw_steps.pop(Utils.get_epoch_end(self._using_dt))
             except:
                 pass
 
@@ -997,25 +1009,25 @@ class Steps(AbstractStep):
 
                     start_key = (raw_steps.keys())[0] - ts_grain
                     raw_steps[start_key] = self(start_key)            
-                    Steps._prettyplot(raw_steps,plot_start=start_key,plot_start_value=0,ax=ax,color=color,**kargs)
+                    Utils._prettyplot(raw_steps,plot_start=start_key,plot_start_value=0,ax=ax,color=color,**kargs)
                             
-                Steps._prettyplot(raw_steps,plot_start=start_key,plot_start_value=0,ax=ax,color=color,**kargs)
+                Utils._prettyplot(raw_steps,plot_start=start_key,plot_start_value=0,ax=ax,color=color,**kargs)
 
             #Steps._prettyplot(raw_steps,plot_start=zero_key,plot_start_value=0,ax=ax,color=color,**kargs)
 
         elif method == 'function':
-                tsx = Steps.get_plot_range(self._start,self._end,ts_grain,use_datetime=self._using_dt)
+                tsx = Utils.get_plot_range(self._start,self._end,ts_grain,use_datetime=self._using_dt)
                 ax.step(tsx,self.step(tsx), where=where,color=color, **kargs)
                 
         elif method == 'smooth':
-            step_ts = np.array([s.start_ts() for s in self._steps if s.start() !=Steps.get_epoch_start(self._using_dt)])
+            step_ts = np.array([s.start_ts() for s in self._steps if s.start() !=Utils.get_epoch_start(self._using_dt)])
             max_ts = np.amax(step_ts)
             min_ts = np.amin(step_ts)
 
             if smooth_factor is None:
                 smooth_factor = (max_ts - min_ts)/250
 
-            tsx = Steps.get_plot_range(self._start,self._end,ts_grain,use_datetime=self._using_dt)
+            tsx = Utils.get_plot_range(self._start,self._end,ts_grain,use_datetime=self._using_dt)
             ax.plot(tsx,self.smooth_step(tsx,smooth_factor = smooth_factor),color=color, **kargs)
 
         # elif method == 'experiment':
@@ -1036,8 +1048,8 @@ class Steps(AbstractStep):
             
             #throw off the infinity end points if they are present
             try:
-                raw_steps.pop(Steps.get_epoch_start(self._using_dt))
-                raw_steps.pop(Steps.get_epoch_end(self._using_dt))
+                raw_steps.pop(Utils.get_epoch_start(self._using_dt))
+                raw_steps.pop(Utils.get_epoch_end(self._using_dt))
             except:
                 pass
 
@@ -1177,13 +1189,13 @@ class Steps(AbstractStep):
                         st = None
 
             if all_true:
-                if self(Steps.get_epoch_start(self._using_dt)) == 0:
-                    if self(Steps.get_epoch_end(self._using_dt)) != 0:
+                if self(Utils.get_epoch_start(self._using_dt)) == 0:
+                    if self(Utils.get_epoch_end(self._using_dt)) != 0:
                         return new_instance.add([Step(start=self._start)])
                     else:
                         return new_instance.add([Step(start=self._start,end=self._end)])
                 else:
-                    if self(Steps.get_epoch_end(self._using_dt)) != 0:
+                    if self(Utils.get_epoch_end(self._using_dt)) != 0:
                         return new_instance.add([Step(use_datetime=self._using_dt)])
                     else:
                         return new_instance.add([Step(end=self._end)])
@@ -1442,7 +1454,7 @@ class Steps(AbstractStep):
     
     def smooth_step(self,x:list(T),smooth_factor:Union[int,float] = None,smooth_basis:Basis = None) -> list(T):
 
-        step_ts = np.array([s.start_ts() for s in self._steps if s.start() != Steps.get_epoch_start(self._using_dt)])
+        step_ts = np.array([s.start_ts() for s in self._steps if s.start() != Utils.get_epoch_start(self._using_dt)])
         max_ts = np.amax(step_ts)
         min_ts = np.amin(step_ts)
 
@@ -1450,7 +1462,7 @@ class Steps(AbstractStep):
             smooth_factor = (max_ts - min_ts)/250
 
         if smooth_basis is None:
-            smooth_basis = Basis(Basis.logit,smooth_factor)
+            smooth_basis = Basis(fb.Logit().base,smooth_factor)
         else:
             smooth_basis = Basis(smooth_basis,smooth_factor)
             
@@ -1505,7 +1517,7 @@ class Steps(AbstractStep):
         if kind is None:
             kind='bar'
 
-        return Steps.simple_plot(lags,pac,ax=ax,legend=False,kind=kind,**kargs)
+        return Utils.simple_plot(lags,pac,ax=ax,legend=False,kind=kind,**kargs)
 
     def percentile(self,percent):
         return Analysis.percentile(self,percent)

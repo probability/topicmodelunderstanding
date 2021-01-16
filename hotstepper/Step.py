@@ -1,19 +1,16 @@
 from __future__ import annotations
+from hotstepper.Utils import Utils
 import matplotlib.pyplot as plt
 import numpy as np
-
-try:
-    import numpy as xp
-except ImportError:
-    import numpy as xp
-
 import copy
 import pandas as pd
 from sortedcontainers import SortedDict
 from datetime import datetime
 from typing import Optional, Union
 
+from hotstepper.Utils import Utils
 from hotstepper.Basis import Basis
+import hotstepper.fastbase as fb
 from hotstepper.AbstractStep import AbstractStep
 
 valid_input_types = (int,float,pd.Timestamp,datetime)
@@ -29,7 +26,7 @@ class Step(AbstractStep):
         self._direction = 1
         self._basis = basis
         self._base = self._basis.base()
-        self._using_dt = use_datetime or Step.is_date_time(start) or Step.is_date_time(end)
+        self._using_dt = use_datetime or Utils.is_date_time(start) or Utils.is_date_time(end)
 
         if type(weight) in [list,tuple]:
             self._weight = weight[0]
@@ -40,15 +37,15 @@ class Step(AbstractStep):
             self._weight = weight
 
         if (start is not None) and (end is not None):
-            self._start, self._start_ts = Step.get_keys(start, self._using_dt)
+            self._start, self._start_ts = Utils.get_keys(start, self._using_dt)
             self._end = self.link_child(end,end_weight)
 
         elif (start is not None) and (end is None):
-            self._start, self._start_ts = Step.get_keys(start, self._using_dt)
+            self._start, self._start_ts = Utils.get_keys(start, self._using_dt)
             self._end = None
         elif (start is None) and (end is not None):
             self._direction = -1
-            self._start, self._start_ts = Step.get_keys(end, self._using_dt)
+            self._start, self._start_ts = Utils.get_keys(end, self._using_dt)
             if end_weight is not None:
                 self._end = self.link_child(end,end_weight)
             else:
@@ -56,9 +53,12 @@ class Step(AbstractStep):
         else:
             self._basis = Basis(Basis.constant)
             self._base = self._basis.base()
-            self._start, self._start_ts = Step.get_keys(start, self._using_dt,is_inf=True)
+            self._start, self._start_ts = Utils.get_keys(start, self._using_dt,is_inf=True)
             self._end = None
 
+    def _faststep(self,x:list(T)) -> list(T):
+        res = self._weight*self._base((x-self.start_ts())*self._direction,self._basis.param)
+        return res
 
     def link_child(self,other:T,weight:T = None) -> Step:
         return Step(start=other,end=None,weight = -1*self._weight)
@@ -97,47 +97,25 @@ class Step(AbstractStep):
             raise TypeError('Can only directly compare step with step object.')
     
     def __getitem__(self,x:T) -> T:
-        if self._basis !=Basis.heaviside:
-            return self._faststep(x)
-        else:
-            return self.step(x)
+        return self.step(x)
 
     def __call__(self,x:T) -> T:
-        if self._basis !=Basis.heaviside:
-            return self._faststep(x)
-        else:
-            return self.step(x)
-    
+        return self.step(x)
+
     def step(self,x:T) -> T:
 
         if not hasattr(x,'__iter__'):
             x = [x]
         elif type(x) is slice:
             x = np.arange(x.start,x.stop,x.step)
-            
-        if len(x) > 0 and Step.is_date_time(x[0]):
-            xf = xp.asarray([(t.timestamp()-self.start_ts())*self._direction for t in x])
-        else:
-            xf = xp.asarray([(t-self.start_ts())*self._direction for t in x])
-            
-        result = self._weight*self._base(xf,self._basis.param)
+
+        result = self._weight*np.asarray(self._base(x,self._basis.param,self.start_ts(),self._direction))
         end_st = self._end
         
         if end_st is not None and hasattr(end_st,'step') and callable(end_st.step):
-            if hasattr(xp,'asnumpy'):
-                cp_res = xp.asnumpy(result)
-            else:
-                cp_res = result
+            result = np.add(result,end_st.stepf(x))
 
-            result = np.add(cp_res,end_st.step(x))
-            
-        del xf
-        
-        if hasattr(xp,'asnumpy'):
-            return xp.asnumpy(result)
-        else:
-            return result
-
+        return result
     
     def smooth_step(self,x:list(T),smooth_factor:Union[int,float] = 1.0,smooth_basis:Basis = None) -> list(T):
         if smooth_basis is None:
@@ -184,31 +162,31 @@ class Step(AbstractStep):
   
         new_end = None
         if type(other) == Step:
-            if rshift_step.start() == Step.get_epoch_end():
-                new_start, new_start_ts = Step.get_keys(rshift_step.start(), rshift_step._using_dt)
+            if rshift_step.start() == Utils.get_epoch_end():
+                new_start, new_start_ts = Utils.get_keys(rshift_step.start(), rshift_step._using_dt)
             else:
-                new_start, new_start_ts = Step.get_keys(rshift_step.start() + other, rshift_step._using_dt)
+                new_start, new_start_ts = Utils.get_keys(rshift_step.start() + other, rshift_step._using_dt)
 
             if rshift_step._end is not None:
-                new_end, new_end_ts = Step.get_keys(rshift_step.end().start() + other, rshift_step._using_dt)
-                Step._modify_step(rshift_step._end,'_start',new_end)
-                Step._modify_step(rshift_step._end,'_start_ts',new_end_ts)
+                new_end, new_end_ts = Utils.get_keys(rshift_step.end().start() + other, rshift_step._using_dt)
+                Utils._modify_step(rshift_step._end,'_start',new_end)
+                Utils._modify_step(rshift_step._end,'_start_ts',new_end_ts)
 
-            Step._modify_step(rshift_step,'_start',new_start)
-            Step._modify_step(rshift_step,'_start_ts',new_start_ts)
+            Utils._modify_step(rshift_step,'_start',new_start)
+            Utils._modify_step(rshift_step,'_start_ts',new_start_ts)
         else:
-            if rshift_step.start() == Step.get_epoch_end():
-                new_start, new_start_ts = Step.get_keys(rshift_step.start(), rshift_step._using_dt)
+            if rshift_step.start() == Utils.get_epoch_end():
+                new_start, new_start_ts = Utils.get_keys(rshift_step.start(), rshift_step._using_dt)
             else:
-                new_start, new_start_ts = Step.get_keys(rshift_step.start() + other, rshift_step._using_dt)
+                new_start, new_start_ts = Utils.get_keys(rshift_step.start() + other, rshift_step._using_dt)
             
             if rshift_step._end is not None:
-                new_end, new_end_ts = Step.get_keys(rshift_step.end().start() + other, rshift_step._using_dt)
-                Step._modify_step(rshift_step._end,'_start',new_end)
-                Step._modify_step(rshift_step._end,'_start_ts',new_end_ts)
+                new_end, new_end_ts = Utils.get_keys(rshift_step.end().start() + other, rshift_step._using_dt)
+                Utils._modify_step(rshift_step._end,'_start',new_end)
+                Utils._modify_step(rshift_step._end,'_start_ts',new_end_ts)
 
-            Step._modify_step(rshift_step,'_start',new_start)
-            Step._modify_step(rshift_step,'_start_ts',new_start_ts)
+            Utils._modify_step(rshift_step,'_start',new_start)
+            Utils._modify_step(rshift_step,'_start_ts',new_start_ts)
 
         return rshift_step
     
@@ -220,31 +198,31 @@ class Step(AbstractStep):
         new_end_ts = None
 
         if type(other) == Step:
-            if lshift_step.start() == Step.get_epoch_start():
-                new_start, new_start_ts = Step.get_keys(lshift_step.start(), lshift_step._using_dt)
+            if lshift_step.start() == Utils.get_epoch_start():
+                new_start, new_start_ts = Utils.get_keys(lshift_step.start(), lshift_step._using_dt)
             else:
-                new_start, new_start_ts = Step.get_keys(lshift_step.start() - other, lshift_step._using_dt)
+                new_start, new_start_ts = Utils.get_keys(lshift_step.start() - other, lshift_step._using_dt)
             
             if lshift_step.end() is not None:
-                new_end, new_end_ts = Step.get_keys(lshift_step.end().start() - other, lshift_step._using_dt)
-                Step._modify_step(lshift_step._end,'_start',new_end)
-                Step._modify_step(lshift_step._end,'_start_ts',new_end_ts)
+                new_end, new_end_ts = Utils.get_keys(lshift_step.end().start() - other, lshift_step._using_dt)
+                Utils._modify_step(lshift_step._end,'_start',new_end)
+                Utils._modify_step(lshift_step._end,'_start_ts',new_end_ts)
 
-            Step._modify_step(lshift_step,'_start',new_start)
-            Step._modify_step(lshift_step,'_start_ts',new_start_ts)
+            Utils._modify_step(lshift_step,'_start',new_start)
+            Utils._modify_step(lshift_step,'_start_ts',new_start_ts)
         else:
-            if lshift_step.start() == Step.get_epoch_start():
-                new_start, new_start_ts = Step.get_keys(lshift_step.start(), lshift_step._using_dt)
+            if lshift_step.start() == Utils.get_epoch_start():
+                new_start, new_start_ts = Utils.get_keys(lshift_step.start(), lshift_step._using_dt)
             else:
-                new_start, new_start_ts = Step.get_keys(lshift_step.start() - other, lshift_step._using_dt)
+                new_start, new_start_ts = Utils.get_keys(lshift_step.start() - other, lshift_step._using_dt)
             
             if lshift_step.end() is not None:
-                new_end, new_end_ts = Step.get_keys(lshift_step.end().start() - other, lshift_step._using_dt)
-                Step._modify_step(lshift_step._end,'_start',new_end)
-                Step._modify_step(lshift_step._end,'_start_ts',new_end_ts)
+                new_end, new_end_ts = Utils.get_keys(lshift_step.end().start() - other, lshift_step._using_dt)
+                Utils._modify_step(lshift_step._end,'_start',new_end)
+                Utils._modify_step(lshift_step._end,'_start_ts',new_end_ts)
 
-            Step._modify_step(lshift_step,'_start',new_start)
-            Step._modify_step(lshift_step,'_start_ts',new_start_ts)
+            Utils._modify_step(lshift_step,'_start',new_start)
+            Utils._modify_step(lshift_step,'_start_ts',new_start_ts)
 
         return lshift_step
 
@@ -268,37 +246,37 @@ class Step(AbstractStep):
         reflected_step = self.copy()
 
         if axis == 0:
-            Step._modify_step(reflected_step,'_weight',reflect_point-1*reflected_step._weight)
+            Utils._modify_step(reflected_step,'_weight',reflect_point-1*reflected_step._weight)
 
             if reflected_step._end is not None:
-                Step._modify_step(reflected_step._end,'_weight',reflect_point-1*reflected_step._end._weight)
+                Utils._modify_step(reflected_step._end,'_weight',reflect_point-1*reflected_step._end._weight)
         else:
             #If the step has an end, axis=1 reflect is the same as axis=0
             if reflected_step._end is not None:
-                Step._modify_step(reflected_step,'_weight',reflect_point-1*reflected_step._weight)
-                Step._modify_step(reflected_step._end,'_weight',reflect_point-1*reflected_step._end._weight)
+                Utils._modify_step(reflected_step,'_weight',reflect_point-1*reflected_step._weight)
+                Utils._modify_step(reflected_step._end,'_weight',reflect_point-1*reflected_step._end._weight)
             else:
-                Step._modify_step(reflected_step,'_direction',-1*reflected_step._direction)
+                Utils._modify_step(reflected_step,'_direction',-1*reflected_step._direction)
 
         return reflected_step
 
     def normalise(self,norm_value:float = 1) -> Step:
         normed_step = self.copy()
 
-        Step._modify_step(normed_step,'_weight',norm_value*np.sign(normed_step._weight))
+        Utils._modify_step(normed_step,'_weight',norm_value*np.sign(normed_step._weight))
 
         if normed_step._end is not None:
-            Step._modify_step(normed_step._end,'_weight',norm_value*np.sign(normed_step._end._weight))
+            Utils._modify_step(normed_step._end,'_weight',norm_value*np.sign(normed_step._end._weight))
 
         return normed_step
         
     def __pow__(self,power_val:Union[int,float]) -> Step:
         pow_step = self.copy()
 
-        Step._modify_step(pow_step,'_weight',pow_step._weight**power_val)
+        Utils._modify_step(pow_step,'_weight',pow_step._weight**power_val)
 
         if pow_step._end is not None:
-            Step._modify_step(pow_step._end,'_weight',-1*np.sign(pow_step.weight())*np.abs(pow_step._end.weight()**power_val))
+            Utils._modify_step(pow_step._end,'_weight',-1*np.sign(pow_step.weight())*np.abs(pow_step._end.weight()**power_val))
 
         return pow_step
 
@@ -328,11 +306,11 @@ class Step(AbstractStep):
 
             new_step = self.copy()
 
-            Step._modify_step(new_step,'_weight',new_weight)
+            Utils._modify_step(new_step,'_weight',new_weight)
 
             if new_step._end is not None:
                 new_weight = new_step._end._weight*other
-                Step._modify_step(new_step._end,'_weight',new_weight)
+                Utils._modify_step(new_step._end,'_weight',new_weight)
 
             return new_step
 
@@ -366,7 +344,7 @@ class Step(AbstractStep):
                 if end == np.inf:
                     if self._direction == -1 or other.direction() == -1:
                         new_s = Step(start=nstart,weight=new_weight,use_datetime=self._using_dt)
-                        Step._modify_step(new_s,'_direction',-1)
+                        Utils._modify_step(new_s,'_direction',-1)
                         return new_s
                     else:
                         return Step(start=nstart,weight=new_weight,use_datetime=self._using_dt)
@@ -422,7 +400,7 @@ class Step(AbstractStep):
             max_value = max_ts
 
         end_start = self._end._start if self._end is not None else None
-        tsx = Step.get_plot_range(self._start,end_start,ts_grain,use_datetime=self._using_dt)
+        tsx = Utils.get_plot_range(self._start,end_start,ts_grain,use_datetime=self._using_dt)
 
         if method == 'pretty':
             raw_steps = SortedDict()
@@ -441,7 +419,7 @@ class Step(AbstractStep):
                 raw_steps[max_value] = self._weight
                 end_marker=False
 
-            Step._prettyplot(raw_steps,plot_start=min_value,plot_start_value=0,ax=ax,end_index=last_marker_index,include_end=end_marker,**kargs)
+            Utils._prettyplot(raw_steps,plot_start=min_value,plot_start_value=0,ax=ax,end_index=last_marker_index,include_end=end_marker,**kargs)
         elif method == 'smooth':
             ax.step(tsx,self.smooth_step(tsx,smooth_factor), where=where,color=color, **kargs)
         elif method == 'function':
