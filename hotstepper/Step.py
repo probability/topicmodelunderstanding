@@ -10,6 +10,7 @@ from typing import Optional, Union
 
 from hotstepper.Utils import Utils
 from hotstepper.Basis import Basis
+from hotstepper.Bases import Bases
 import hotstepper.fastbase as fb
 from hotstepper.AbstractStep import AbstractStep
 
@@ -51,7 +52,7 @@ class Step(AbstractStep):
             else:
                 self._end = None
         else:
-            self._basis = Basis(Basis.constant)
+            self._basis = Basis(Bases.constant)
             self._base = self._basis.base()
             self._start, self._start_ts = Utils.get_keys(start, self._using_dt,is_inf=True)
             self._end = None

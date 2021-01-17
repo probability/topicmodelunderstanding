@@ -18,6 +18,7 @@ from datetime import datetime, timedelta
 
 from hotstepper.Utils import Utils
 from hotstepper.Basis import Basis
+from hotstepper.Bases import Bases
 import hotstepper.fastbase as fb
 from hotstepper.AbstractStep import AbstractStep
 from hotstepper.Step import Step
@@ -691,7 +692,7 @@ class Steps(AbstractStep):
             self._base = new_basis.base()
         else:
             for s in self._steps:
-                if s._base is not Basis.constant:
+                if s._base is not Bases.constant:
                     s.rebase(new_basis)
 
     def clip(self,lbound:T=None,ubound:T=None) -> Steps:
@@ -1462,7 +1463,7 @@ class Steps(AbstractStep):
             smooth_factor = (max_ts - min_ts)/250
 
         if smooth_basis is None:
-            smooth_basis = Basis(fb.Logit().base,smooth_factor)
+            smooth_basis = Basis(Bases.logit(),smooth_factor)
         else:
             smooth_basis = Basis(smooth_basis,smooth_factor)
             

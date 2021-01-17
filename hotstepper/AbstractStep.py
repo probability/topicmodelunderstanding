@@ -2,12 +2,6 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 import numpy as np
-
-try:
-    import numpy as cp
-except ImportError:
-    import numpy as cp
-
 import pandas as pd
 import abc
 from datetime import datetime
