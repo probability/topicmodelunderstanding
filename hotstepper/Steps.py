@@ -776,7 +776,9 @@ class Steps(AbstractStep):
             data:SortedDict = SortedDict()
 
             all_keys = np.array([s.start() for s in self._steps])
-            all_values = self(all_keys)
+            all_values = np.array([s.weight() for s in self._steps])
+            all_values = np.cumsum(all_values,axis=0)
+            #all_values = self(all_keys)
 
             # all_keys = np.array([s.start() for s in self._steps])
             # all_values = np.array([s.weight() for s in self._steps])
