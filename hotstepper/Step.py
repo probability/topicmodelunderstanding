@@ -6,7 +6,6 @@ import copy
 import pandas as pd
 from sortedcontainers import SortedDict
 from datetime import datetime
-from typing import Optional, Union
 
 from hotstepper.Utils import Utils
 from hotstepper.Basis import Basis
@@ -15,12 +14,10 @@ import hotstepper.fastbase as fb
 from hotstepper.AbstractStep import AbstractStep
 
 valid_input_types = (int,float,pd.Timestamp,datetime)
-T = Union[valid_input_types]
-S = Union[int,float,'Optional[Step]','Optional[Steps]']
 
 class Step(AbstractStep):
     
-    def __init__(self, start:T=None, end:T = None, weight:T = 1, basis:Basis = Basis(), use_datetime:bool = False) -> None:
+    def __init__(self, start=None, end = None, weight = 1, basis = Basis(), use_datetime = False):
         super().__init__()
 
         end_weight = None
@@ -57,24 +54,24 @@ class Step(AbstractStep):
             self._start, self._start_ts = Utils.get_keys(start, self._using_dt,is_inf=True)
             self._end = None
 
-    def _faststep(self,x:list(T)) -> list(T):
+    def _faststep(self,x):
         res = self._weight*self._base((x-self.start_ts())*self._direction,self._basis.param)
         return res
 
-    def link_child(self,other:T,weight:T = None) -> Step:
+    def link_child(self,other,weight = None):
         return Step(start=other,end=None,weight = -1*self._weight)
 
-    def detach_child(self) -> Step:
+    def detach_child(self):
         parentless_step = copy.deepcopy(self)
         parentless_step._end = None
 
         return parentless_step
     
-    def rebase(self,new_basis:Basis = Basis()) -> None:
+    def rebase(self,new_basis = Basis()) -> None:
         self._basis = new_basis
         self._base = self._basis.base()
         
-    def __lt__(self, other:S) -> bool:
+    def __lt__(self, other):
         if type(other) is Step:
             return self._start_ts < other._start_ts
         elif type(other) is pd.Timestamp:
@@ -82,7 +79,7 @@ class Step(AbstractStep):
         else:
             return self._start_ts < other
     
-    def __gt__(self, other:S) -> bool:
+    def __gt__(self, other):
         if type(other) is Step:
             return self._start_ts > other._start_ts
         elif type(other) is pd.Timestamp:
@@ -90,20 +87,20 @@ class Step(AbstractStep):
         else:
             return self._start_ts > other
     
-    def __eq__(self, other:S) -> bool:
+    def __eq__(self, other):
 
         if type(other) is Step:
             return self._start_ts == other._start_ts and self._weight == other._weight and self._direction == other._direction and self._end == other._end
         else:
             raise TypeError('Can only directly compare step with step object.')
     
-    def __getitem__(self,x:T) -> T:
+    def __getitem__(self,x):
         return self.step(x)
 
-    def __call__(self,x:T) -> T:
+    def __call__(self,x):
         return self.step(x)
 
-    def step(self,x:T) -> T:
+    def step(self,x):
 
         if not hasattr(x,'__iter__'):
             x = [x]
@@ -118,7 +115,7 @@ class Step(AbstractStep):
 
         return result
     
-    def smooth_step(self,x:list(T),smooth_factor:Union[int,float] = 1.0,smooth_basis:Basis = None) -> list(T):
+    def smooth_step(self,x,smooth_factor = 1.0,smooth_basis = None):
         if smooth_basis is None:
             smooth_basis = Basis(Basis.logit,smooth_factor*len(x))
         else:
@@ -137,28 +134,28 @@ class Step(AbstractStep):
         return smoothed
 
 
-    def direction(self) -> T:
+    def direction(self):
         return self._direction
 
-    def start_ts(self) -> T:
+    def start_ts(self):
         return self._start_ts
     
-    def start(self) -> T:
+    def start(self):
         return self._start
     
-    def end(self) -> Step:
+    def end(self):
         return self._end
     
-    def weight(self) -> T:
+    def weight(self):
         return self._direction*self._weight
 
-    def __irshift__(self,other:T) -> Step:
+    def __irshift__(self,other):
         return self.__rshift__(other)
     
-    def __ilshift__(self,other:T) -> Step:
+    def __ilshift__(self,other):
         return self.__lshift__(other)
         
-    def __rshift__(self,other:T) -> Step:
+    def __rshift__(self,other):
         rshift_step = self.copy()
   
         new_end = None
@@ -192,7 +189,7 @@ class Step(AbstractStep):
         return rshift_step
     
 
-    def __lshift__(self,other:T) -> Step:
+    def __lshift__(self,other):
         lshift_step = self.copy()
   
         new_end = None
@@ -228,7 +225,7 @@ class Step(AbstractStep):
         return lshift_step
 
     
-    def __add__(self,other:T) -> S:
+    def __add__(self,other):
         t = type(other)
         if t == Step:
             from hotstepper.Steps import Steps
@@ -243,7 +240,7 @@ class Step(AbstractStep):
                 st = Step(start=self._start,end=self._end._start,weight=self._weight+other)
             return st
 
-    def reflect(self,axis:int = 0, reflect_point:float = 0) -> Step:
+    def reflect(self,axis = 0, reflect_point = 0):
         reflected_step = self.copy()
 
         if axis == 0:
@@ -261,7 +258,7 @@ class Step(AbstractStep):
 
         return reflected_step
 
-    def normalise(self,norm_value:float = 1) -> Step:
+    def normalise(self,norm_value = 1):
         normed_step = self.copy()
 
         Utils._modify_step(normed_step,'_weight',norm_value*np.sign(normed_step._weight))
@@ -271,7 +268,7 @@ class Step(AbstractStep):
 
         return normed_step
         
-    def __pow__(self,power_val:Union[int,float]) -> Step:
+    def __pow__(self,power_val):
         pow_step = self.copy()
 
         Utils._modify_step(pow_step,'_weight',pow_step._weight**power_val)
@@ -281,23 +278,23 @@ class Step(AbstractStep):
 
         return pow_step
 
-    def __floordiv__(self,other:S) -> Step:
+    def __floordiv__(self,other):
         """
         For now this is the same as true div, both only use the common overlap, so if demoninator step is zero in a non-zero region of the numerator, this is non-overlap and returns zero.
         """
         return self*other**-1
 
-    def copy(self) -> Step:
+    def copy(self):
         return copy.deepcopy(self)
 
-    def __truediv__(self,other:S) -> Step:
+    def __truediv__(self,other):
         """
         A common overlap division, so if demoninator step is zero in a non-zero region of the numerator, this is non-overlap and returns zero.
         """
 
         return self*other**-1
 
-    def __mul__(self,other:S) -> Step:
+    def __mul__(self,other):
         t = type(other)
         s = self
         new_weight = self._weight
@@ -355,33 +352,33 @@ class Step(AbstractStep):
                 return Step(start=self._start,weight=0,use_datetime=self._using_dt)
 
 
-    def __sub__(self,other:T) -> S:
+    def __sub__(self,other):
         return self + other.reflect()
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         if self._end is None:
             return ':'.join([str(self._start),str(self._weight)])
         else:
             return ':'.join([str(self._start),str(self._weight),str(self._end)])
     
-    def integrate(self,upper:T, lower:T = 0) -> T:
+    def integrate(self,upper, lower = 0):
         return self._weight*(self._basis.integrand(upper-self._start_ts) - self._basis.integrand(lower-self._start_ts))
 
-    def plot(self,plot_range:list(Union[int,float,pd.Timedelta],Union[int,float,pd.Timedelta],Union[int,float,pd.Timedelta])=None,method:str=None,smooth_factor:Union[int,float] = 1, ts_grain:Union[int,float,pd.Timedelta] = None,ax=None,where='post',**kargs):
+    def plot(self,plot_range=None,method:str=None,smooth_factor = 1, ts_grain = None,ax=None,where='post',**kargs):
         if ax is None:
             _, ax = plt.subplots()
 
         color = kargs.pop('color',None)
 
         if color is None:
-            color=Step.get_default_plot_color()
+            color=Utils.get_default_plot_color()
 
         if self._end is None:
             max_ts = float(1.1*self._start_ts)
         else:
             max_ts = float(1.1*self._end.start_ts())
 
-        if self._start == Step.get_epoch_start(self._using_dt):
+        if self._start == Utils.get_epoch_start(self._using_dt):
             min_ts = float(0.9*max_ts)
         else:
             min_ts = float(0.9*self._start_ts)

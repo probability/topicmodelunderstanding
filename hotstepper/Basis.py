@@ -6,7 +6,7 @@ from hotstepper.Bases import Bases
 
 class Basis():
 
-    def __init__(self,bfunc=None, param:float=1,lbound:float= -np.Inf,ubound:float = np.Inf) -> None:
+    def __init__(self,bfunc=None, param=1,lbound= -np.Inf,ubound = np.Inf):
         self.lbound = lbound
         self.ubound = ubound
         self.param = param

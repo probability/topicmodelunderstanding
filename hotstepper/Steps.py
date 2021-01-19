@@ -23,11 +23,7 @@ import hotstepper.fastbase as fb
 from hotstepper.AbstractStep import AbstractStep
 from hotstepper.Step import Step
 
-
-V = Union[Step,'Optional[Steps]',int,float,np.float64, np.int32]
-
 valid_input_types = (int,float,np.float64, np.int32,datetime,datetime)
-T = Union[valid_input_types]
 
 class Analysis():
     
@@ -35,7 +31,7 @@ class Analysis():
         pass
     
     @staticmethod
-    def pacf(st:Steps, maxlags:int = None) -> T:
+    def pacf(st, maxlags = None):
         
         lags = []
         data = st.step_values()
@@ -58,7 +54,7 @@ class Analysis():
         return lags,pacf
 
     @staticmethod
-    def span_and_weights(st:Steps) -> list(T):
+    def span_and_weights(st:Steps):
         if st.using_datetime():
             step_ts = np.array([k.timestamp() for k in st.step_keys()])
         else:
@@ -71,7 +67,7 @@ class Analysis():
         return np.min(step_ts),np.max(step_ts),span, weights
 
     @staticmethod
-    def mean_integrate(st:Steps) -> list(T):
+    def mean_integrate(st:Steps):
         steps_raw = st.step_values()
         _,_,span, weight = Analysis.span_and_weights(st)
         mean = np.dot(steps_raw[0:-1],weight)
@@ -84,49 +80,49 @@ class Analysis():
             return mean,area,var
 
     @staticmethod
-    def mean(st:Steps) -> T:
+    def mean(st:Steps):
         m,a,v = Analysis.mean_integrate(st)
         return m
 
     @staticmethod
-    def var(st:Steps) -> T:
+    def var(st:Steps):
         m,a,v = Analysis.mean_integrate(st)
         return v
 
     @staticmethod
-    def std(st:Steps) -> T:
+    def std(st:Steps):
         m,a,v = Analysis.mean_integrate(st)
         return np.sqrt(v)
     
     @staticmethod
-    def integrate(st:Steps) -> T:
+    def integrate(st:Steps):
         m,a,v = Analysis.mean_integrate(st)
         return a
     
     @staticmethod
-    def percentile(st:Steps, percent) -> T:
+    def percentile(st:Steps, percent):
         steps_raw = st.step_values()
         return np.percentile(steps_raw,percent)
 
     @staticmethod
-    def min(st:Steps) -> T:
+    def min(st:Steps):
         return np.min(st.step_values())
 
     @staticmethod
-    def max(st:Steps) -> T:
+    def max(st:Steps):
         return np.max(st.step_values())
 
     @staticmethod
-    def mode(st:Steps, policy='omit') -> T:
+    def mode(st:Steps, policy='omit'):
         m,c = stats.mode(st.step_values(),nan_policy=policy)
         return m[0]
 
     @staticmethod
-    def covariance(st:Steps,other:Steps) -> T:
+    def covariance(st:Steps,other:Steps):
         return Analysis.mean(st*other) - Analysis.mean(st)*Analysis.mean(other)
  
     @staticmethod
-    def correlation(st:Steps,other:Steps) -> T:
+    def correlation(st:Steps,other:Steps):
         return Analysis.covariance(st,other)/(Analysis.std(st)*Analysis.std(other))
 
 class Steps(AbstractStep):
@@ -158,7 +154,7 @@ class Steps(AbstractStep):
     An instance of the Steps object with no data attached, the same as a function $f(x) = 0, \\forall x$.
     """
     
-    def __init__(self,use_datetime=False,basis:Basis = Basis()) -> None:
+    def __init__(self,use_datetime=False,basis = Basis()):
         super().__init__()
         self._truesteps = np.array([],dtype=Step)
         self._steps = np.array([],dtype=Step)
@@ -169,7 +165,7 @@ class Steps(AbstractStep):
 
 
     @staticmethod
-    def aggregate(stepss: list(Optional[Steps]), aggfunc:np.ufunc, sample_points:list(T)=None) -> Steps:
+    def aggregate(stepss, aggfunc, sample_points=None):
         """
         Return weights for an Np-point central derivative.
         Assumes equally-spaced function points.
@@ -238,14 +234,14 @@ class Steps(AbstractStep):
         return new_steps.add(step_stack)
 
     @staticmethod
-    def _fill_missing(dt, fill) -> datetime:
+    def _fill_missing(dt, fill):
         if pd.isna(dt):
             return fill
         else:
             return dt
 
     @staticmethod
-    def read_dict(data:Union[dict,SortedDict,OrderedDict,DefaultDict],use_datetime:bool = False, convert_delta:bool = True) -> Steps:
+    def read_dict(data,use_datetime = False, convert_delta = True):
         """
         Read a dictionary with values that represent either the cummulative value of the data steps or the direct step
         values seperately, indexed by the dictionary key values.
@@ -303,7 +299,7 @@ class Steps(AbstractStep):
         
 
     @staticmethod
-    def read_dataframe(data:pd.DataFrame,start:str='start',end:str=None,weight:str=None,use_datetime:bool = False, convert_delta:bool = False) -> Steps:
+    def read_dataframe(data,start='start',end=None,weight=None,use_datetime = False, convert_delta = False):
         """
         Read a Pandas dataframe with values that represent either the cummulative value of the data steps or the direct step
         values seperately. 
@@ -366,7 +362,7 @@ class Steps(AbstractStep):
             raise TypeError("input data must be a Dataframe")
 
     @staticmethod
-    def read_array(start:Union[array,np.ndarray,pd.core.series.Series],end:Union[array,np.ndarray,pd.core.series.Series]=None,weight:Union[array,np.ndarray,pd.core.series.Series]=None,use_datetime:bool = False, convert_delta:bool = False) -> Steps:
+    def read_array(start,end=None,weight=None,use_datetime = False, convert_delta = False):
         """
         Read arrays of values for start, end and weight values that represent either the cummulative value of the data steps or the direct step
         values seperately, indexed by the start and possibly end arrays.
@@ -451,7 +447,7 @@ class Steps(AbstractStep):
         self._steps = np.array([],dtype=Step)
         self._cummulative = SortedDict()
         
-    def add(self,steps:list(Step)) -> Steps:
+    def add(self,steps):
         """
         Add an array of individual step objects to this collection of steps.
 
@@ -483,7 +479,7 @@ class Steps(AbstractStep):
 
         return self
 
-    def __add__(self,other:V) -> Steps:
+    def __add__(self,other):
         """
         The '+' operation to add int, float, step and steps objects like they are numbers.
 
@@ -514,7 +510,7 @@ class Steps(AbstractStep):
 
             return combine
 
-    def __sub__(self,other:V) -> Steps:
+    def __sub__(self,other):
         """
         The '-' operation to subtract int, float, step and steps objects like they are numbers.
 
@@ -550,13 +546,13 @@ class Steps(AbstractStep):
 
             return combine
     
-    def using_datetime(self) -> bool:
+    def using_datetime(self):
         return self._using_dt
     
-    def copy(self) -> Steps:
+    def copy(self):
         return copy.deepcopy(self)
         
-    def steps(self) -> list(Step):
+    def steps(self):
         return self._steps
 
 
@@ -683,7 +679,7 @@ class Steps(AbstractStep):
         return Steps.read_array(start=x, weight=y,convert_delta=True)
 
 
-    def rebase(self,new_basis:Basis = None,change_steps=False) -> None:
+    def rebase(self,new_basis = None,change_steps=False):
         if new_basis is None:
             new_basis = Basis()
 
@@ -695,16 +691,7 @@ class Steps(AbstractStep):
                 if s._base is not Bases.constant:
                     s.rebase(new_basis)
 
-    def clip(self,lbound:T=None,ubound:T=None) -> Steps:
-        
-        # neg_inf_val = 0
-
-        # if self._using_dt:
-        #     delta = pd.Timedelta(1,unit='ns')
-        #     neg_inf_val = (self(Steps.get_epoch_start(True)))[0]
-        # else:
-        #     delta = 0.000000001
-        #     neg_inf_val = (self(Steps.get_epoch_start(False)))[0]
+    def clip(self,lbound=None,ubound=None):
 
         data = self.to_dict(False)
 
@@ -753,7 +740,7 @@ class Steps(AbstractStep):
 
         return smin,smax,s
 
-    def reduce(self, full_reduce:bool=False) -> None:      
+    def reduce(self, full_reduce=False):      
 
         data = self.to_dict(False)
             
@@ -763,14 +750,14 @@ class Steps(AbstractStep):
         self.add(new_steps)
 
 
-    def step_values(self) -> np.ndarray:
+    def step_values(self):
         return np.array(self._cummulative.values())
     
-    def step_keys(self) -> list(T):
+    def step_keys(self):
         return list(self._cummulative.keys())
     
     
-    def to_dict(self,use_cummulative:bool = True, only_ends:bool = False) -> SortedDict:
+    def to_dict(self,use_cummulative = True, only_ends = False):
         
         if use_cummulative:
             data:SortedDict = SortedDict()
@@ -819,7 +806,7 @@ class Steps(AbstractStep):
 
             return SortedDict(data)
     
-    def to_dataframe(self) -> pd.DataFrame:
+    def to_dataframe(self):
 
         data:array = []
 
@@ -835,13 +822,13 @@ class Steps(AbstractStep):
         return pd.DataFrame.from_dict(data)
 
 
-    def __getitem__(self,x:T) -> T:
+    def __getitem__(self,x):
         return self.step(x)
 
-    def __call__(self,x:T) -> T:
+    def __call__(self,x):
         return self.step(x)
     
-    def step(self, x:T) -> list(T):
+    def step(self, x):
         if not hasattr(x,'__iter__'):
             x = [x]
         elif type(x) is slice:
@@ -868,33 +855,7 @@ class Steps(AbstractStep):
 
         return result
 
-    # def step_old(self, x:T) -> list(T):
-    #     if not hasattr(x,'__iter__'):
-    #         x = [x]
-    #     elif type(x) is slice:
-    #         if Steps.is_date_time(x.start):
-    #             if x.step is None:
-    #                 x = np.arange(x.start,x.stop,timedelta(minutes=1)).astype(pd.Timestamp)
-    #             else:
-    #                 x = np.arange(x.start,x.stop,x.step).astype(pd.Timestamp)
-    #         else:
-    #             x = np.arange(x.start,x.stop,x.step)
-        
-    #     xf = np.asarray(list(map(_get_ts, x)),dtype=float)
-            
-    #     # bottle neck is right here!
-    #     if len(self._steps) > 0:
-    #         stvals = np.array([s.step(xf) for s in self._steps])
-    #     else:
-    #         return np.zeros(len(x))
-
-    #     result = np.sum(stvals,axis=0)
-    #     del stvals
-
-    #     return result
-
-
-    def smooth_plot(self,smooth_factor:Union[int,float] = None, ts_grain:Union[int,float,pd.Timedelta] = None,ax=None,where='post',**kargs):
+    def smooth_plot(self,smooth_factor = None, ts_grain = None,ax=None,where='post',**kargs):
         return self.plot(method='smooth',smooth_factor=smooth_factor, ts_grain=ts_grain,ax=ax,where=where,**kargs)
 
     def plot(self,plot_range=None,method=None, plot_start=None,plot_end=None,
@@ -1097,7 +1058,7 @@ class Steps(AbstractStep):
 
         return ax
 
-    def _operate_norm(self,other:V, op_func) -> Steps:
+    def _operate_norm(self,other, op_func):
         """
         This function is used to create a normalised representation of the steps that results from applying the comparison function
         to the cummulative total of the steps.
@@ -1142,7 +1103,7 @@ class Steps(AbstractStep):
             return new_instance
 
 
-    def _operate_norm_old(self,other:V, op_func) -> Steps:
+    def _operate_norm_old(self,other, op_func):
         """
         This function is used to create a normalised representation of the steps that results from applying the comparison function
         to the cummulative total of the steps.
@@ -1206,7 +1167,7 @@ class Steps(AbstractStep):
             new_instance.add(new_steps)
             return new_instance
 
-    def _operate_value_new(self,other:V, op_func) -> Steps:
+    def _operate_value_new(self,other, op_func):
         """
         This function is used to create filtered version of the steps by removing steps not evaluating to true from applying the comparison function
         to the cummulative total of the steps.
@@ -1267,7 +1228,7 @@ class Steps(AbstractStep):
             new_instance.add(new_steps)
             return new_instance
 
-    def _operate_value(self,other:V, op_func) -> Steps:
+    def _operate_value(self,other, op_func):
         """
         This function is used to create filtered version of the steps by removing steps not evaluating to true from applying the comparison function
         to the cummulative total of the steps.
@@ -1321,7 +1282,7 @@ class Steps(AbstractStep):
 
             return new_instance
 
-    def reflect(self,reflect_point:float = 0) -> Steps:
+    def reflect(self,reflect_point = 0):
         new_instance = Steps(use_datetime=self._using_dt,basis=self._basis)
         
         reflected_steps = [s.reflect(reflect_point) for s in self._steps]
@@ -1329,7 +1290,7 @@ class Steps(AbstractStep):
         
         return new_instance
     
-    def __pow__(self,power_val:Union[int,float]) -> Steps:
+    def __pow__(self,power_val):
         new_instance = Steps(use_datetime=self._using_dt,basis=self._basis)
         
         pow_steps = [s**power_val for s in self._steps]
@@ -1349,55 +1310,55 @@ class Steps(AbstractStep):
             self._index = 0
             raise StopIteration
 
-    def normalise(self) -> Steps:
+    def normalise(self):
         return self._operate_norm(0, operator.ne)
     
-    def invert(self) -> Steps:
+    def invert(self):
         return self._operate_norm(0, operator.eq)
         
-    def __gt__(self,other:V) -> Steps:
+    def __gt__(self,other):
         return self._operate_value(other, operator.gt)
     
-    def __lt__(self,other:V) -> Steps:
+    def __lt__(self,other):
         return self._operate_value(other, operator.lt)
 
-    def __ge__(self,other:V) -> Steps:
+    def __ge__(self,other):
         return self._operate_value(other, operator.ge)
     
-    def __le__(self,other:V) -> Steps:
+    def __le__(self,other):
         return self._operate_value(other, operator.le)
 
-    def __ne__(self,other:V) -> Steps:
+    def __ne__(self,other):
         return self._operate_value(other, operator.ne)
 
-    def __eq__(self,other:V) -> Steps:
+    def __eq__(self,other):
         return self._operate_value(other, operator.eq)
         
-    def __lshift__(self,other:V) -> Steps:
+    def __lshift__(self,other):
         new_instance = Steps(use_datetime=self._using_dt,basis=self._basis)
         
         lshift_steps = [s<<other for s in self._steps]
         new_instance.add(lshift_steps)
         return new_instance
         
-    def __rshift__(self,other:V) -> Steps:
+    def __rshift__(self,other):
         new_instance = Steps(use_datetime=self._using_dt,basis=self._basis)
         
         rshift_steps = [s>>other for s in self._steps]
         new_instance.add(rshift_steps)
         return new_instance
 
-    def __floordiv__(self,other:V) -> Steps:
+    def __floordiv__(self,other):
         pass
 
-    def rotate(self) -> Steps:
+    def rotate(self):
         return Steps.read_array(self.step_values(),self.step_keys(),convert_delta=True)
 
 
-    def __truediv__(self,other:V) -> Steps:
+    def __truediv__(self,other):
         return self*other**-1
 
-    def __mul__(self,other:V) -> Steps:
+    def __mul__(self,other):
         if isinstance(other, Steps):
             new_steps = np.array([],dtype=Step)
 
@@ -1431,31 +1392,31 @@ class Steps(AbstractStep):
 
             return st
 
-    def start_ts(self) -> T:
+    def start_ts(self):
         pass
     
-    def start(self) -> T:
+    def start(self):
         pass
     
-    def end(self) -> Step:
+    def end(self):
         pass
     
-    def weight(self) -> T:
+    def weight(self):
         pass
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return ','.join([str(s) for s in self._steps])
 
     def link_child(self, other):
         pass
     
-    def __irshift__(self,other:T):
+    def __irshift__(self,other):
         pass
     
-    def __ilshift__(self,other:T):
+    def __ilshift__(self,other):
         pass
     
-    def smooth_step(self,x:list(T),smooth_factor:Union[int,float] = None,smooth_basis:Basis = None) -> list(T):
+    def smooth_step(self,x,smooth_factor:Union[int,float] = None,smooth_basis:Basis = None):
 
         step_ts = np.array([s.start_ts() for s in self._steps if s.start() != Utils.get_epoch_start(self._using_dt)])
         max_ts = np.amax(step_ts)
@@ -1499,7 +1460,7 @@ class Steps(AbstractStep):
     def median(self):
         return Analysis.percentile(self, 50)
     
-    def pacf(self, maxlags:int = None):
+    def pacf(self, maxlags = None):
         #l = len(self._cumsum)
         l = len(self.step_values())
 
@@ -1508,12 +1469,12 @@ class Steps(AbstractStep):
 
         return Analysis.pacf(self, maxlags)
 
-    def pacf_step(self, maxlags:int = None):
+    def pacf_step(self, maxlags = None):
         lags, pac = self.pacf(maxlags)
 
         return Steps.read_array(start=lags, weight=pac, convert_delta=True)
 
-    def pacf_plot(self, maxlags:int = None,ax=None,**kargs):
+    def pacf_plot(self, maxlags = None,ax=None,**kargs):
         lags, pac = self.pacf(maxlags)
 
         kind = kargs.pop('kind',None)
@@ -1525,8 +1486,8 @@ class Steps(AbstractStep):
     def percentile(self,percent):
         return Analysis.percentile(self,percent)
 
-    def covariance(self,other:Steps) -> T:
+    def covariance(self,other):
         return Analysis.covariance(self,other)
 
-    def correlation(self,other:Steps) -> T:
+    def correlation(self,other):
         return Analysis.correlation(self,other)

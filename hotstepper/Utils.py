@@ -10,7 +10,6 @@ from typing import Union
 
 
 valid_input_types = (int,float,pd.Timestamp,datetime)
-T = Union[valid_input_types]
 
 class Utils(metaclass=abc.ABCMeta):
     
@@ -28,14 +27,14 @@ class Utils(metaclass=abc.ABCMeta):
 
 
     @staticmethod
-    def get_epoch_start(use_datetime:bool = True):
+    def get_epoch_start(use_datetime = True):
         if use_datetime:
             return pd.Timestamp(1999,12,31,23,59)
         else:
             return -np.inf
 
     @staticmethod
-    def get_epoch_end(use_datetime:bool = True):
+    def get_epoch_end(use_datetime = True):
         if use_datetime:
             return pd.Timestamp.max
         else:
@@ -49,7 +48,7 @@ class Utils(metaclass=abc.ABCMeta):
             return val
 
     @staticmethod
-    def _modify_step(obj, attr:str,new_value, change_end:bool = False):
+    def _modify_step(obj, attr,new_value, change_end = False):
         if obj is not None and hasattr(obj,attr):
             setattr(obj,attr,new_value)
 
@@ -86,7 +85,7 @@ class Utils(metaclass=abc.ABCMeta):
         return ax
 
     @staticmethod
-    def _prettyplot(step_dict:SortedDict,plot_start=0,plot_start_value=0,ax=None,start_index=1,end_index=None,include_end=True,**kargs) -> Axes:
+    def _prettyplot(step_dict,plot_start=0,plot_start_value=0,ax=None,start_index=1,end_index=None,include_end=True,**kargs):
 
         step0_k = plot_start
         step0_v = plot_start_value
@@ -118,7 +117,7 @@ class Utils(metaclass=abc.ABCMeta):
             step0_v = v
 
     @staticmethod
-    def get_plot_range(start:T,end:T, delta:T = None, use_datetime:bool = False):
+    def get_plot_range(start,end, delta = None, use_datetime = False):
 
         shift = None
 
@@ -166,7 +165,7 @@ class Utils(metaclass=abc.ABCMeta):
                 return np.arange(start-shift, start + shift, delta)
 
     @staticmethod
-    def is_date_time(value:T) -> bool:
+    def is_date_time(value):
         return hasattr(value,'timestamp') and callable(value.timestamp)
 
     @staticmethod
