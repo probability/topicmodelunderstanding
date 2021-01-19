@@ -54,7 +54,7 @@ class Analysis():
         return lags,pacf
 
     @staticmethod
-    def span_and_weights(st:Steps):
+    def span_and_weights(st):
         if st.using_datetime():
             step_ts = np.array([k.timestamp() for k in st.step_keys()])
         else:
@@ -67,7 +67,7 @@ class Analysis():
         return np.min(step_ts),np.max(step_ts),span, weights
 
     @staticmethod
-    def mean_integrate(st:Steps):
+    def mean_integrate(st):
         steps_raw = st.step_values()
         _,_,span, weight = Analysis.span_and_weights(st)
         mean = np.dot(steps_raw[0:-1],weight)
@@ -80,49 +80,49 @@ class Analysis():
             return mean,area,var
 
     @staticmethod
-    def mean(st:Steps):
+    def mean(st):
         m,a,v = Analysis.mean_integrate(st)
         return m
 
     @staticmethod
-    def var(st:Steps):
+    def var(st):
         m,a,v = Analysis.mean_integrate(st)
         return v
 
     @staticmethod
-    def std(st:Steps):
+    def std(st):
         m,a,v = Analysis.mean_integrate(st)
         return np.sqrt(v)
     
     @staticmethod
-    def integrate(st:Steps):
+    def integrate(st):
         m,a,v = Analysis.mean_integrate(st)
         return a
     
     @staticmethod
-    def percentile(st:Steps, percent):
+    def percentile(st, percent):
         steps_raw = st.step_values()
         return np.percentile(steps_raw,percent)
 
     @staticmethod
-    def min(st:Steps):
+    def min(st):
         return np.min(st.step_values())
 
     @staticmethod
-    def max(st:Steps):
+    def max(st):
         return np.max(st.step_values())
 
     @staticmethod
-    def mode(st:Steps, policy='omit'):
+    def mode(st, policy='omit'):
         m,c = stats.mode(st.step_values(),nan_policy=policy)
         return m[0]
 
     @staticmethod
-    def covariance(st:Steps,other:Steps):
+    def covariance(st,other):
         return Analysis.mean(st*other) - Analysis.mean(st)*Analysis.mean(other)
  
     @staticmethod
-    def correlation(st:Steps,other:Steps):
+    def correlation(st,other):
         return Analysis.covariance(st,other)/(Analysis.std(st)*Analysis.std(other))
 
 class Steps(AbstractStep):
