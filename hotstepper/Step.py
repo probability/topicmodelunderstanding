@@ -54,6 +54,11 @@ class Step(AbstractStep):
             self._start, self._start_ts = Utils.get_keys(start, self._using_dt,is_inf=True)
             self._end = None
 
+        self._step_np = np.array([self._start,self.weight(),self._start_ts,self._direction,self._weight])
+
+    def step_np(self):
+        return self._step_np
+
     def _faststep(self,x):
         res = self._weight*self._base((x-self.start_ts())*self._direction,self._basis.param)
         return res

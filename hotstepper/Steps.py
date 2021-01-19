@@ -420,7 +420,7 @@ class Steps(AbstractStep):
                 params['weight'] = 'weight'
 
 
-            if use_datetime or Steps.is_date_time(start[0]):
+            if use_datetime or Utils.is_date_time(start[0]):
                 params['use_datetime'] = True
                 df_data.start = df_data.start.apply(pd.Timestamp)
                 
@@ -473,6 +473,8 @@ class Steps(AbstractStep):
 
         self._truesteps = np.sort(self._truesteps)
         self._steps = np.sort(self._steps)
+
+        self._step_np = np.array([s.step_np() for s in self._steps])
 
         self._cummulative = self.to_dict()
 
@@ -577,9 +579,9 @@ class Steps(AbstractStep):
 
         edgecolor = kargs.pop('edgecolor',None)
         if edgecolor is None:
-            edgecolor=Steps.get_default_plot_color()
+            edgecolor=Utils.get_default_plot_color()
 
-        return Steps.simple_plot(x,y,ax=ax,legend=False,kind=kind,fill=fill,**kargs)
+        return Utils.simple_plot(x,y,ax=ax,legend=False,kind=kind,fill=fill,**kargs)
 
     def ecdf_step(self):
         x,y = self.ecdf()
@@ -763,9 +765,11 @@ class Steps(AbstractStep):
         if use_cummulative:
             data:SortedDict = SortedDict()
 
-            all_keys = np.array([s.start() for s in self._steps])
-            all_values = np.array([s.weight() for s in self._steps])
-
+            #all_keys = np.array([s.start() for s in self._steps])
+            #all_values = np.array([s.weight() for s in self._steps])
+            
+            all_keys = self._step_np[:,0]
+            all_values = self._step_np[:,1]
             
             #all_values = self(all_keys)
 
@@ -851,7 +855,8 @@ class Steps(AbstractStep):
                 x = np.asarray(list(map(Utils.get_ts, x)))
 
             #stvals = np.array([s.step(xf) for s in self._steps])
-            st = np.array([[s._start_ts,s._direction,s._weight] for s in self._steps],dtype=float)
+            #st = np.array([[s._start_ts,s._direction,s._weight] for s in self._steps],dtype=float)
+            st = np.array(self._step_np[:,[2,3,4]] ,dtype=float)
             result = np.asarray(fb.fast_steps_heaviside().step(st,x,1))
         else:
             return np.zeros(len(x))

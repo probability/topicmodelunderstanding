@@ -13,7 +13,7 @@ T = Union[valid_input_types]
 
 class AbstractStep(metaclass=abc.ABCMeta):
 
-    __slots__ = ('_start','_start_ts','_using_dt','_weight','_end','_basis','_base','_direction')
+    __slots__ = ('_start','_start_ts','_using_dt','_weight','_end','_basis','_base','_direction','_step_np')
     
     def __init__(self) -> None:
         super().__init__()
