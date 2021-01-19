@@ -765,17 +765,18 @@ class Steps(AbstractStep):
 
             all_keys = np.array([s.start() for s in self._steps])
             all_values = np.array([s.weight() for s in self._steps])
-            all_values = np.cumsum(all_values,axis=0)
+
             
             #all_values = self(all_keys)
 
             # all_keys = np.array([s.start() for s in self._steps])
             # all_values = np.array([s.weight() for s in self._steps])
-            # neg_inf_val = self.step(Steps.get_epoch_start(self._using_dt))[0]
+            neg_inf_val = self.step(Utils.get_epoch_start(self._using_dt))[0]
 
-            # if neg_inf_val !=0:
-            #     all_values = np.insert(all_values,0,neg_inf_val,axis=0)
+            if neg_inf_val !=0:
+                all_values = np.insert(all_values,0,neg_inf_val,axis=0)
 
+            all_values = np.cumsum(all_values,axis=0)
             # all_values = np.cumsum(all_values,axis=0)
 
             start_key = np.amin(all_keys)
