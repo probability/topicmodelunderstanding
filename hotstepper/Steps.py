@@ -477,6 +477,7 @@ class Steps(AbstractStep):
 
         self._truesteps = np.sort(self._truesteps)
         self._steps = np.sort(self._steps)
+
         self._cummulative = self.to_dict()
 
         self._using_dt = Utils.is_date_time(self._cummulative.keys()[0])
@@ -778,6 +779,7 @@ class Steps(AbstractStep):
             all_keys = np.array([s.start() for s in self._steps])
             all_values = np.array([s.weight() for s in self._steps])
             all_values = np.cumsum(all_values,axis=0)
+            
             #all_values = self(all_keys)
 
             # all_keys = np.array([s.start() for s in self._steps])
@@ -853,18 +855,23 @@ class Steps(AbstractStep):
             else:
                 x = np.arange(x.start,x.stop,x.step)
         
-        xf = np.asarray(list(map(Utils.get_ts, x)))
-            
+        
+
         # bottle neck is right here!
         if len(self._steps) > 0:
-            stvals = np.array([s.step(xf) for s in self._steps])
+            if self.using_datetime:
+                x = np.asarray(list(map(Utils.get_ts, x)))
+
+            #stvals = np.array([s.step(xf) for s in self._steps])
+            st = np.array([[s._start_ts,s._direction,s._weight] for s in self._steps],dtype=float)
+            result = np.asarray(fb.fast_steps_heaviside().step(st,x,1))
         else:
             return np.zeros(len(x))
 
-        result = np.sum(stvals,axis=0)
+        #result = np.sum(stvals,axis=0)
 
-        del xf
-        del stvals
+        del x
+        #del stvals
 
         return result
 
@@ -1119,6 +1126,7 @@ class Steps(AbstractStep):
             new_steps = []
             
             all_keys = [s.start() for s in self._steps]
+            #all_keys.append(Utils.get_epoch_start(self._using_dt))
             all_values = self.step(all_keys)
 
             mask = np.where(op_func(all_values,other), np.sign(all_values),0)
@@ -1136,7 +1144,10 @@ class Steps(AbstractStep):
                     e = g[-1] if e >= len(self._steps)-1 else g[-1]+1
                     new_steps.append(Step(start=self._steps[s].start(), end=self._steps[e].start(),weight=np.sign(all_values[s])))
                 else:
-                    new_steps.append(Step(start=self._steps[s].start(), end=self._steps[s+1].start(),weight=np.sign(all_values[s])))
+                    if s+1 >=len(self._steps):
+                        new_steps.append(Step(start=self._steps[s].start(),weight=np.sign(all_values[s])))
+                    else:
+                        new_steps.append(Step(start=self._steps[s].start(), end=self._steps[s+1].start(),weight=np.sign(all_values[s])))
                 
             new_instance.add(new_steps)
             return new_instance

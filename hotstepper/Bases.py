@@ -13,7 +13,7 @@ class Bases(metaclass=abc.ABCMeta):
 
     @staticmethod
     def heaviside():
-        return fb.Heavisidef().base
+        return fb.fast_steps_heaviside
         
     @staticmethod
     def heaviside_old(x:list(T),s:float, v:float, d:float) -> np.ufunc:
@@ -29,7 +29,7 @@ class Bases(metaclass=abc.ABCMeta):
 
     @staticmethod
     def logit():
-        return fb.Logit().base
+        return fb.fast_steps_logit
     
     @staticmethod
     def expon(x:list(T),s:float, v:float, d:float) -> np.func:
