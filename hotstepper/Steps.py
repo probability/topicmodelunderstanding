@@ -158,6 +158,7 @@ class Steps(AbstractStep):
         super().__init__()
         self._truesteps = np.array([],dtype=Step)
         self._steps = np.array([],dtype=Step)
+        self._step_np = np.empty([1,4])
         self._basis = basis
         self._using_dt = use_datetime
         self._base = basis.base()
@@ -474,11 +475,12 @@ class Steps(AbstractStep):
         self._truesteps = np.sort(self._truesteps)
         self._steps = np.sort(self._steps)
 
-        self._step_np = np.array([s.step_np() for s in self._steps])
+        #self._using_dt = Utils.is_date_time(self._steps[0]._using_dt)
+
+        self._step_np = np.append(self._step_np,np.array([s.step_np() for s in self._steps]),axis=0)
 
         self._cummulative = self.to_dict()
 
-        self._using_dt = Utils.is_date_time(self._cummulative.keys()[0])
 
         return self
 
@@ -764,26 +766,27 @@ class Steps(AbstractStep):
         
         if use_cummulative:
             data:SortedDict = SortedDict()
-
-            #all_keys = np.array([s.start() for s in self._steps])
-            #all_values = np.array([s.weight() for s in self._steps])
             
             all_keys = self._step_np[:,0]
-            all_values = self._step_np[:,1]
+            all_values = self._step_np[:,2]*self._step_np[:,3]
             
-            #all_values = self(all_keys)
+            # if self._using_dt:
+            #     all_keys = np.asarray(list(map(Utils.get_dt, all_keys)))
 
-            # all_keys = np.array([s.start() for s in self._steps])
-            # all_values = np.array([s.weight() for s in self._steps])
-            neg_inf_val = self.step(Utils.get_epoch_start(self._using_dt))[0]
 
-            if neg_inf_val !=0:
-                all_values = np.insert(all_values,0,neg_inf_val,axis=0)
+            # neg_inf_key = Utils.get_epoch_start(self._using_dt)
+            # neg_inf_val = self.step(neg_inf_key)[0]
+
+            # if neg_inf_val !=0:
+            #     all_values = np.insert(all_values,0,neg_inf_val,axis=0)
+            #     all_keys = np.insert(all_keys,0,neg_inf_key,axis=0)
 
             all_values = np.cumsum(all_values,axis=0)
             # all_values = np.cumsum(all_values,axis=0)
 
+            print(type(all_keys[0]),all_keys[0])
             start_key = np.amin(all_keys)
+            print(start_key)
 
             if start_key == Utils.get_epoch_start(self._using_dt) and len(all_keys) > 1:
                 start_key = all_keys[1]
@@ -851,12 +854,12 @@ class Steps(AbstractStep):
 
         # bottle neck is right here!
         if len(self._steps) > 0:
-            if self.using_datetime:
+            if self._using_dt:
                 x = np.asarray(list(map(Utils.get_ts, x)))
 
             #stvals = np.array([s.step(xf) for s in self._steps])
             #st = np.array([[s._start_ts,s._direction,s._weight] for s in self._steps],dtype=float)
-            st = np.array(self._step_np[:,[2,3,4]] ,dtype=float)
+            st = self._step_np[:,[1,2,3]]
             result = np.asarray(fb.fast_steps_heaviside().step(st,x,1))
         else:
             return np.zeros(len(x))

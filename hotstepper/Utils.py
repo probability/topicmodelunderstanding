@@ -4,6 +4,7 @@ from matplotlib.axes import Axes
 import numpy as np
 import pandas as pd
 import abc
+import pendulum as pdate
 from sortedcontainers import SortedDict
 from datetime import datetime
 from typing import Union
@@ -174,4 +175,8 @@ class Utils(metaclass=abc.ABCMeta):
             return ts.timestamp()
         else:
             return ts
+
+    @staticmethod
+    def get_dt(ts):
+        return pd.Timestamp.utcfromtimestamp(int(ts))
    
