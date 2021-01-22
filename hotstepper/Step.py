@@ -10,7 +10,6 @@ from datetime import datetime
 from hotstepper.Utils import Utils
 from hotstepper.Basis import Basis
 from hotstepper.Bases import Bases
-import hotstepper.fastbase as fb
 from hotstepper.AbstractStep import AbstractStep
 
 valid_input_types = (int,float,pd.Timestamp,datetime)
@@ -49,12 +48,12 @@ class Step(AbstractStep):
             else:
                 self._end = None
         else:
-            self._basis = Basis(Bases.constant)
+            self._basis = Basis(Bases.fconstant)
             self._base = self._basis.base()
             self._start, self._start_ts = Utils.get_keys(start, self._using_dt,is_inf=True)
             self._end = None
 
-        self._step_np = np.array([self._start,self._start_ts,self._direction,self._weight])
+        self._step_np = np.array([self._start,float(self._start_ts),float(self._direction),float(self._weight)])
 
     def step_np(self):
         return self._step_np
@@ -67,10 +66,7 @@ class Step(AbstractStep):
         return Step(start=other,end=None,weight = -1*self._weight)
 
     def detach_child(self):
-        parentless_step = copy.deepcopy(self)
-        parentless_step._end = None
-
-        return parentless_step
+        return self.copy(False)
     
     def rebase(self,new_basis = Basis()) -> None:
         self._basis = new_basis
@@ -108,35 +104,48 @@ class Step(AbstractStep):
     def step(self,x):
 
         if not hasattr(x,'__iter__'):
-            x = [x]
+            x = np.array([x])
         elif type(x) is slice:
             x = np.arange(x.start,x.stop,x.step)
 
-        result = self._weight*np.asarray(self._base(x,self._basis.param,self.start_ts(),self._direction))
+        if self._using_dt:
+            x = np.asarray(list(map(Utils.get_ts, x)))
+
+        result = self._base(x,self._start_ts,self._direction,self._weight)
         end_st = self._end
         
         if end_st is not None and hasattr(end_st,'step') and callable(end_st.step):
-            result = np.add(result,end_st.stepf(x))
+            result = np.add(result,end_st.step(x))
 
         return result
-    
-    def smooth_step(self,x,smooth_factor = 1.0,smooth_basis = None):
-        if smooth_basis is None:
-            smooth_basis = Basis(Basis.logit,smooth_factor*len(x))
-        else:
-            smooth_basis = Basis(smooth_basis,smooth_factor*len(x))
-            
-        self.rebase(smooth_basis)
-        if self._end is not None:
-            self._end.rebase(smooth_basis)
-        
-        smoothed = self.step(x)
-        self.rebase()
-        
-        if self._end is not None:
-            self._end.rebase()
 
-        return smoothed
+
+    def smooth_step(self,x,smooth_factor = None,smooth_basis = None):
+        if not hasattr(x,'__iter__'):
+            x = np.array([x])
+        elif type(x) is slice:
+            if Utils.is_date_time(x.start):
+                if x.step is None:
+                    x = np.arange(x.start,x.stop,pd.Timedelta(minutes=1)).astype(pd.Timestamp)
+                else:
+                    x = np.arange(x.start,x.stop,x.step).astype(pd.Timestamp)
+            else:
+                x = np.arange(x.start,x.stop,x.step)
+
+        if smooth_factor is None:
+            smooth_factor = float(len(x)*10)
+
+        # bottle neck is right here!
+        if self._using_dt:
+            x = np.asarray(list(map(Utils.get_ts, x)),dtype=float)
+        
+
+        print(smooth_factor)
+
+
+        result = Bases.fflogit(x,np.array([self._step_np[[1,2,3]]],dtype=float),smooth_factor)
+
+        return result
 
 
     def direction(self):
@@ -289,8 +298,17 @@ class Step(AbstractStep):
         """
         return self*other**-1
 
-    def copy(self):
-        return copy.deepcopy(self)
+    def copy(self,copy_end = True):
+        new_step = None
+        if self._direction == 1:
+            if self._end is None or not copy_end:
+                new_step = Step(start=self._start,weight=self._weight,basis=self._basis)
+            else:
+                new_step = Step(start=self._start, end=self._end.start(),weight=self._weight,basis=self._basis)
+        else:
+            new_step = Step(end=self._start,weight=self._weight,basis=self._basis)
+
+        return new_step
 
     def __truediv__(self,other):
         """
@@ -369,7 +387,10 @@ class Step(AbstractStep):
     def integrate(self,upper, lower = 0):
         return self._weight*(self._basis.integrand(upper-self._start_ts) - self._basis.integrand(lower-self._start_ts))
 
-    def plot(self,plot_range=None,method:str=None,smooth_factor = 1, ts_grain = None,ax=None,where='post',**kargs):
+    def smooth_plot(self,plot_range=None,method:str=None,smooth_factor = None, ts_grain = None,ax=None,where='post',**kargs):
+        return self.plot(method='smooth',smooth_factor=smooth_factor, ts_grain=ts_grain,ax=ax,where=where,**kargs)
+
+    def plot(self,plot_range=None,method:str=None,smooth_factor = None, ts_grain = None,ax=None,where='post',**kargs):
         if ax is None:
             _, ax = plt.subplots()
 
@@ -390,7 +411,7 @@ class Step(AbstractStep):
 
         if self._using_dt:
             if ts_grain==None:
-                ts_grain = pd.Timedelta(minutes=10)
+                ts_grain = pd.Timedelta(minutes=1)
                 
             min_value = pd.Timestamp.utcfromtimestamp(min_ts)
             max_value = pd.Timestamp.utcfromtimestamp(max_ts)

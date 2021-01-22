@@ -12,7 +12,7 @@ class Basis():
         self.param = param
         
         if bfunc is None:
-            self._base = Bases.heaviside()
+            self._base = Bases.fheaviside
         else:
             self._base = bfunc
             

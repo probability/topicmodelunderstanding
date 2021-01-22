@@ -19,7 +19,6 @@ from datetime import datetime, timedelta
 from hotstepper.Utils import Utils
 from hotstepper.Basis import Basis
 from hotstepper.Bases import Bases
-import hotstepper.fastbase as fb
 from hotstepper.AbstractStep import AbstractStep
 from hotstepper.Step import Step
 
@@ -158,7 +157,7 @@ class Steps(AbstractStep):
         super().__init__()
         self._truesteps = np.array([],dtype=Step)
         self._steps = np.array([],dtype=Step)
-        self._step_np = np.empty([1,4])
+        self._step_np = None
         self._basis = basis
         self._using_dt = use_datetime
         self._base = basis.base()
@@ -275,7 +274,7 @@ class Steps(AbstractStep):
         """
 
         if type(data) in [dict,SortedDict,OrderedDict,DefaultDict] :
-            if Steps.is_date_time(list(data.keys())[0]) or use_datetime:
+            if Utils.is_date_time(list(data.keys())[0]) or use_datetime:
                 st = Steps(True)
             elif type(list(data.keys())[0]) in valid_input_types:
                 st = Steps()
@@ -462,8 +461,9 @@ class Steps(AbstractStep):
 
         """
 
+        end_steps = [s.end().copy() for s in steps if s.end() is not None]
         start_steps = [s.detach_child() for s in steps]        
-        end_steps = [copy.deepcopy(s.end()) for s in steps if s.end() is not None]
+        
 
         #keep a copy of the full steps so we can export properly
         self._truesteps = np.append(self._truesteps,steps)
@@ -472,14 +472,31 @@ class Steps(AbstractStep):
         self._steps = np.append(self._steps,start_steps)
         self._steps = np.append(self._steps,end_steps)
 
-        self._truesteps = np.sort(self._truesteps)
-        self._steps = np.sort(self._steps)
+        self._truesteps = np.sort(self._truesteps,kind='heapsort')
+        self._steps = np.sort(self._steps,kind='heapsort')
 
         #self._using_dt = Utils.is_date_time(self._steps[0]._using_dt)
+        if self._step_np is None:
+            self._step_np = np.array([s.step_np() for s in self._steps])
+        else:
+            self._step_np = np.array([s.step_np() for s in self._steps])
 
-        self._step_np = np.append(self._step_np,np.array([s.step_np() for s in self._steps]),axis=0)
+
+        all_keys = np.array(self._step_np[:,1],dtype=float)
+        all_values = self._step_np[:,2]*self._step_np[:,3]
+
+        neg_inf_key = Utils.get_epoch_start(self._using_dt)
+        neg_inf_val = self.step(neg_inf_key)[0]
+
+        if neg_inf_val !=0:
+            all_values = np.insert(all_values,0,neg_inf_val,axis=0)
+            all_keys = np.insert(all_keys,0,neg_inf_key,axis=0)
+
+        self._all_keys = all_keys
+        self._all_values = Bases.fcumsum.accumulate(np.array(all_values,dtype=float))
 
         self._cummulative = self.to_dict()
+        
 
 
         return self
@@ -500,14 +517,12 @@ class Steps(AbstractStep):
         """
         combine = self.copy()
         if type(other) == Step:
-            sc = copy.deepcopy(other)
-            sc._using_dt = self._using_dt
-            combine.add([sc])
+            combine.add([copy.copy(other)])
                 
             return combine
         
         elif type(other) == Steps:
-            combine.add(copy.deepcopy(other.steps()))
+            combine.add(copy.copy(other.steps()))
 
             return combine
         else:
@@ -532,18 +547,12 @@ class Steps(AbstractStep):
 
         combine = self.copy()
         if type(other) == Step:
-            if other.end() is None:
-                combine.add([Step(start=other.start(),weight=-1*other.weight())])
-            else:
-                combine.add([Step(start=other.start(),end=other.end().start(),weight=-1*other.weight())])
+            combine.add([copy.copy(other*-1)])
                 
             return combine
         
         elif type(other) == Steps:
-            other_steps = other.steps()
-            sub_steps = [Step(start=s.start(),weight=-1*s.weight()) for s in other_steps]
-            
-            combine.add(sub_steps)
+            combine.add((copy.copy(other*-1).steps()))
 
             return combine
         else:
@@ -555,7 +564,7 @@ class Steps(AbstractStep):
         return self._using_dt
     
     def copy(self):
-        return copy.deepcopy(self)
+        return copy.copy(self)
         
     def steps(self):
         return self._steps
@@ -693,7 +702,7 @@ class Steps(AbstractStep):
             self._base = new_basis.base()
         else:
             for s in self._steps:
-                if s._base is not Bases.constant:
+                if s._base is not Bases.fconstant:
                     s.rebase(new_basis)
 
     def clip(self,lbound=None,ubound=None):
@@ -761,18 +770,19 @@ class Steps(AbstractStep):
     def step_keys(self):
         return list(self._cummulative.keys())
     
-    
+    def fast_step(self,t):
+        if not hasattr(t,'__iter__'):
+            t = [t]
+        return self._all_values[np.searchsorted(self._all_keys,np.asarray(list(map(Utils.get_ts, t)),dtype=float))-1]
+
     def to_dict(self,use_cummulative = True, only_ends = False):
         
         if use_cummulative:
             data:SortedDict = SortedDict()
             
             all_keys = self._step_np[:,0]
-            all_values = self._step_np[:,2]*self._step_np[:,3]
             
-            # if self._using_dt:
-            #     all_keys = np.asarray(list(map(Utils.get_dt, all_keys)))
-
+            #all_values = self._step_np[:,2]*self._step_np[:,3]
 
             # neg_inf_key = Utils.get_epoch_start(self._using_dt)
             # neg_inf_val = self.step(neg_inf_key)[0]
@@ -781,20 +791,19 @@ class Steps(AbstractStep):
             #     all_values = np.insert(all_values,0,neg_inf_val,axis=0)
             #     all_keys = np.insert(all_keys,0,neg_inf_key,axis=0)
 
-            all_values = np.cumsum(all_values,axis=0)
-            # all_values = np.cumsum(all_values,axis=0)
+            # all_values = Bases.fcumsum.accumulate(np.array(all_values,dtype=float))
 
-            print(type(all_keys[0]),all_keys[0])
+            all_values = self._all_values
+
             start_key = np.amin(all_keys)
-            print(start_key)
 
-            if start_key == Utils.get_epoch_start(self._using_dt) and len(all_keys) > 1:
+            if start_key == Utils.get_epoch_start() and len(all_keys) > 1:
                 start_key = all_keys[1]
             else:
                 start_key = all_keys[0]
 
             end_key = np.amax(all_keys)
-            if end_key == Utils.get_epoch_end(self._using_dt) and len(all_keys) > 2:
+            if end_key == Utils.get_epoch_end() and len(all_keys) > 2:
                 end_key = all_keys[-2]
             else:
                 end_key = all_keys[-1]
@@ -811,8 +820,8 @@ class Steps(AbstractStep):
             data:defaultdict = defaultdict(lambda:0)
             data[Utils.get_epoch_start(self._using_dt)] = self(Utils.get_epoch_start(self._using_dt))[0]
 
-            for s in self._steps:
-                data[s.start()] += s.weight()
+            for s in self._step_np:
+                data[s[0]] += s[2]*s[3]
 
             return SortedDict(data)
     
@@ -836,7 +845,7 @@ class Steps(AbstractStep):
         return self.step(x)
 
     def __call__(self,x):
-        return self.step(x)
+        return self.fast_step(x)
     
     def step(self, x):
         if not hasattr(x,'__iter__'):
@@ -850,24 +859,16 @@ class Steps(AbstractStep):
             else:
                 x = np.arange(x.start,x.stop,x.step)
         
-        
-
         # bottle neck is right here!
         if len(self._steps) > 0:
             if self._using_dt:
-                x = np.asarray(list(map(Utils.get_ts, x)))
+                x = np.asarray(list(map(Utils.get_ts, x)),dtype=float)
+            else:
+                x = np.array(x,dtype=float)
 
-            #stvals = np.array([s.step(xf) for s in self._steps])
-            #st = np.array([[s._start_ts,s._direction,s._weight] for s in self._steps],dtype=float)
-            st = self._step_np[:,[1,2,3]]
-            result = np.asarray(fb.fast_steps_heaviside().step(st,x,1))
+            result = Bases.ffheaviside(x,np.array(self._step_np[:,[1,2,3]],dtype=float),1.0)
         else:
             return np.zeros(len(x))
-
-        #result = np.sum(stvals,axis=0)
-
-        del x
-        #del stvals
 
         return result
 
@@ -876,12 +877,6 @@ class Steps(AbstractStep):
 
     def plot(self,plot_range=None,method=None, plot_start=None,plot_end=None,
         smooth_factor = None,ts_grain = None,ax=None,where='post',**kargs):
-
-        #hack to correct dt plot slipping
-        if self._using_dt:
-            dt_delta = pd.Timedelta(hours=11)
-        else:
-            dt_delta = 0
 
         if ax is None:
             size = kargs.pop('size',None)
@@ -993,35 +988,13 @@ class Steps(AbstractStep):
                             
                 Utils._prettyplot(raw_steps,plot_start=start_key,plot_start_value=0,ax=ax,color=color,**kargs)
 
-            #Steps._prettyplot(raw_steps,plot_start=zero_key,plot_start_value=0,ax=ax,color=color,**kargs)
-
         elif method == 'function':
                 tsx = Utils.get_plot_range(self._start,self._end,ts_grain,use_datetime=self._using_dt)
                 ax.step(tsx,self.step(tsx), where=where,color=color, **kargs)
                 
         elif method == 'smooth':
-            step_ts = np.array([s.start_ts() for s in self._steps if s.start() !=Utils.get_epoch_start(self._using_dt)])
-            max_ts = np.amax(step_ts)
-            min_ts = np.amin(step_ts)
-
-            if smooth_factor is None:
-                smooth_factor = (max_ts - min_ts)/250
-
-            tsx = Utils.get_plot_range(self._start,self._end,ts_grain,use_datetime=self._using_dt)
+            tsx = self.step_keys()
             ax.plot(tsx,self.smooth_step(tsx,smooth_factor = smooth_factor),color=color, **kargs)
-
-        # elif method == 'experiment':
-        #     raw_steps = self._cummulative
-
-        #     # small offset to ensure we plot the initial step transition
-        #     if self._using_dt:
-        #         ts_grain = pd.Timedelta(minutes=10)
-        #     else:
-        #         ts_grain = 0.01
-
-        #     zero_key = (raw_steps.keys())[0] - ts_grain
-        #     raw_steps[zero_key] = self([zero_key])
-        #     ax.step(raw_steps.keys(),self.smooth_step(raw_steps.keys()), where=where,color=color, **kargs)
 
         else:
             raw_steps = self._cummulative
@@ -1094,11 +1067,7 @@ class Steps(AbstractStep):
             new_instance = Steps(use_datetime=self._using_dt,basis=self._basis)
 
             new_steps = []
-            
-            all_keys = [s.start() for s in self._steps]
-            #all_keys.append(Utils.get_epoch_start(self._using_dt))
-            all_values = self.step(all_keys)
-
+            all_values = Bases.fcumsum.accumulate(np.array(self._step_np[:,2]*self._step_np[:,3],dtype=float))
             mask = np.where(op_func(all_values,other), np.sign(all_values),0)
 
             groups = [(group[0],group[-1]) for group in (list(group) for key, group in groupby(range(len(mask)), key=mask.__getitem__) if key!=0)]
@@ -1122,70 +1091,6 @@ class Steps(AbstractStep):
             new_instance.add(new_steps)
             return new_instance
 
-
-    def _operate_norm_old(self,other, op_func):
-        """
-        This function is used to create a normalised representation of the steps that results from applying the comparison function
-        to the cummulative total of the steps.
-
-        Parameters
-        ===========
-        other : int, float, Step, Steps. Any value to compare each step component against.
-        op_func : Numpy Universal Function. A binary comparison function that returns a bool, e.g >,<,==.
-
-        Returns:
-        ==========
-        Steps: A new steps instance with weight of 1 everywhere the filter condition was true.
-        
-        """
-
-        if type(other) in [float,int]:
-            new_instance = Steps(use_datetime=self._using_dt,basis=self._basis)
-            new_steps = []
-            
-            #all_keys = [s.start() for s in self._steps]
-            #all_values = self.step(all_keys)
-
-            #all_keys = np.array(list(self._cummulative.keys()))
-            #all_values = np.array(list(self._cummulative.values()))
-
-            all_keys = [s.start() for s in self._steps]
-            all_values = self.step(all_keys)
-
-            mask = np.where(op_func(all_values,other), True,False)
-            
-            first = True
-            st = None
-            all_true=True
-
-            for i ,s in enumerate(self._steps):
-                if mask[i]:
-                    if first:
-                        st = s
-                        first=False
-                        new_steps.append(Step(start=st.start(),weight=1))
-                        continue
-                else:
-                    all_true = False
-                    if not first:
-                        first=True
-                        new_steps.append(Step(start=s.start(),weight=-1))
-                        st = None
-
-            if all_true:
-                if self(Utils.get_epoch_start(self._using_dt)) == 0:
-                    if self(Utils.get_epoch_end(self._using_dt)) != 0:
-                        return new_instance.add([Step(start=self._start)])
-                    else:
-                        return new_instance.add([Step(start=self._start,end=self._end)])
-                else:
-                    if self(Utils.get_epoch_end(self._using_dt)) != 0:
-                        return new_instance.add([Step(use_datetime=self._using_dt)])
-                    else:
-                        return new_instance.add([Step(end=self._end)])
-                    
-            new_instance.add(new_steps)
-            return new_instance
 
     def _operate_value_new(self,other, op_func):
         """
@@ -1232,7 +1137,7 @@ class Steps(AbstractStep):
                     last_step._weight = -1*all_values[s] + adjustment
 
                     new_steps = np.append(new_steps,[first_step,last_step])
-                    new_steps = np.append(new_steps,copy.deepcopy(self._steps[s+1:e]))
+                    new_steps = np.append(new_steps,(self._steps[s+1:e]).copy())
 
                 else:
                     first_step = self._steps[s].copy()
@@ -1266,12 +1171,8 @@ class Steps(AbstractStep):
         if type(other) in [float,int]:
             new_instance = Steps(use_datetime=self._using_dt,basis=self._basis)
             new_steps = []
-            #all_keys = np.array(list(self._cummulative.keys()))
-            #all_values = np.array(list(self._cummulative.values()))
-            
-            all_keys = [s.start() for s in self._steps]
-            all_values = self.step(all_keys)
 
+            all_values = np.cumsum(self._step_np[:,2]*self._step_np[:,3],axis=0)
             mask = np.where(op_func(all_values,other), True,False)
             
             first = True
@@ -1384,16 +1285,18 @@ class Steps(AbstractStep):
 
             #Need to remove the inserted end steps as the start step parent will handle the end in the Step multiplication
             #end_steps = [s.end() for s in self._steps if s.end() is not None]
-            other_end_steps = [s.end() for s in other.steps() if s.end() is not None]
+            #other_end_steps = [s.end() for s in other.steps() if s.end() is not None]
 
             for s in self._steps:
                 #if s not in end_steps:
                 for s_other in other.steps():
                     #if s_other not in other_end_steps:
-                    new_steps = np.append(new_steps,s*s_other)
+                    res_mul = s*s_other
+                    if res_mul.weight() !=0:
+                        new_steps = np.append(new_steps,res_mul)
 
-            st = Steps().add(new_steps)
-            st.reduce()
+            st = Steps(use_datetime=self._using_dt).add(new_steps)
+            #st.reduce()
 
             return st
 
@@ -1401,14 +1304,16 @@ class Steps(AbstractStep):
             new_steps = np.array([],dtype=Step)
 
             #Need to remove the inserted end steps as the start step parent will handle the end in the Step multiplication
-            end_steps = [s.end() for s in self._steps if s.end() is not None]
+            #end_steps = [s.end() for s in self._steps if s.end() is not None]
 
             for s in self._steps:
-                #if s not in end_steps:
-                new_steps = np.append(new_steps,s*other)
+                res_mul = s*other
+                if res_mul.weight() !=0:
+                    new_steps = np.append(new_steps,res_mul)
+                #new_steps = np.append(new_steps,s*other)
 
-            st = Steps().add(new_steps)
-            st.reduce()
+            st = Steps(use_datetime=self._using_dt).add(new_steps)
+            #st.reduce()
 
             return st
 
@@ -1435,27 +1340,36 @@ class Steps(AbstractStep):
     
     def __ilshift__(self,other):
         pass
-    
-    def smooth_step(self,x,smooth_factor:Union[int,float] = None,smooth_basis:Basis = None):
 
-        step_ts = np.array([s.start_ts() for s in self._steps if s.start() != Utils.get_epoch_start(self._using_dt)])
-        max_ts = np.amax(step_ts)
-        min_ts = np.amin(step_ts)
+    def smooth_step(self,x,smooth_factor = None,smooth_basis = None):
+        if not hasattr(x,'__iter__'):
+            x = [x]
+        elif type(x) is slice:
+            if Utils.is_date_time(x.start):
+                if x.step is None:
+                    x = np.arange(x.start,x.stop,timedelta(minutes=1)).astype(pd.Timestamp)
+                else:
+                    x = np.arange(x.start,x.stop,x.step).astype(pd.Timestamp)
+            else:
+                x = np.arange(x.start,x.stop,x.step)
 
         if smooth_factor is None:
-            smooth_factor = (max_ts - min_ts)/250
+            smooth_factor = len(self._cummulative.keys())*10
 
-        if smooth_basis is None:
-            smooth_basis = Basis(Bases.logit(),smooth_factor)
+        # bottle neck is right here!
+        if len(self._steps) > 0:
+            if self._using_dt:
+                x = np.asarray(list(map(Utils.get_ts, x)),dtype=float)
+            else:
+                x = np.array(x,dtype=float)
+
+            st = np.array(self._step_np[:,[1,2,3]],dtype=float)
+            result = Bases.fflogit(x,st,smooth_factor)
         else:
-            smooth_basis = Basis(smooth_basis,smooth_factor)
-            
-        self.rebase(smooth_basis)
-        smoothed = self.step(x)
-        self.rebase()
+            return np.zeros(len(x))
 
-        return smoothed
-                                                            
+        return result
+
     def integrate(self):
         return Analysis.integrate(self)
     
